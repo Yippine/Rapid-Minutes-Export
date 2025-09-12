@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Union, Any
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from enum import Enum
 import tempfile
 
 try:

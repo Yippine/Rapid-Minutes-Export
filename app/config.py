@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     
     # Application Configuration
     app_name: str = Field(default="Rapid-Minutes-Export", env="APP_NAME")
-    app_version: str = Field(default="0.2.0", env="APP_VERSION")
+    app_version: str = Field(default="0.5.0", env="APP_VERSION")
     app_host: str = Field(default="0.0.0.0", env="APP_HOST")
     app_port: int = Field(default=8000, env="APP_PORT")
     debug: bool = Field(default=True, env="DEBUG")
