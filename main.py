@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Rapid Minutes Export",
     description="AI-powered meeting minutes generation from text to Word documents",
-    version="1.0.0",
+    version="0.1.0",
     lifespan=lifespan
 )
 
