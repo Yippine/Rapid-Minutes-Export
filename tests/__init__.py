@@ -1,6 +1,4 @@
 """
 Test Package for Rapid Minutes Export
-Comprehensive testing suite for all system components
+Comprehensive testing framework following SESE principles
 """
-
-__version__ = "1.0.0"
