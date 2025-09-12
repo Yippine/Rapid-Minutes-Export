@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Rapid Minutes Export - AI Meeting Minutes Automation System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🎯 Rapid Minutes Export</h1>
+            <p class="subtitle">AI Meeting Minutes Automation System - Professional meeting minutes in 3 steps</p>
+        </header>
+
+        <main class="main-content">
+            <!-- Step 1: Upload -->
+            <section class="step-section" id="upload-section">
+                <div class="step-header">
+                    <span class="step-number">1</span>
+                    <h2>Upload Meeting Transcript</h2>
+                </div>
+                
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-content">
+                        <div class="upload-icon">📄</div>
+                        <p class="upload-text">Drag file here or click to select</p>
+                        <p class="upload-hint">Supports .txt format, max 10MB</p>
+                        <input type="file" id="fileInput" accept=".txt" style="display: none;">
+                        <button type="button" class="upload-button" onclick="document.getElementById('fileInput').click()">
+                            Select File
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="file-info" id="fileInfo" style="display: none;">
+                    <h3>Selected File:</h3>
+                    <p id="fileName"></p>
+                    <p id="fileSize"></p>
+                </div>
+            </section>
+
+            <!-- Step 2: Generate -->
+            <section class="step-section" id="generate-section" style="display: none;">
+                <div class="step-header">
+                    <span class="step-number">2</span>
+                    <h2>AI Generate Meeting Minutes</h2>
+                </div>
+                
+                <div class="generate-content">
+                    <button type="button" class="generate-button" id="generateButton">
+                        🚀 Start Generate Meeting Minutes
+                    </button>
+                    
+                    <div class="progress-container" id="progressContainer" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <p class="progress-text" id="progressText">Preparing...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 3: Download -->
+            <section class="step-section" id="download-section" style="display: none;">
+                <div class="step-header">
+                    <span class="step-number">3</span>
+                    <h2>Download Results</h2>
+                </div>
+                
+                <div class="download-content">
+                    <div class="download-options">
+                        <a href="#" class="download-link" id="downloadWord" style="display: none;">
+                            📝 Download Word Format
+                        </a>
+                        <a href="#" class="download-link" id="downloadPdf" style="display: none;">
+                            📄 Download PDF Format
+                        </a>
+                    </div>
+                    
+                    <button type="button" class="reset-button" id="resetButton">
+                        🔄 Start Over
+                    </button>
+                </div>
+            </section>
+
+            <!-- Error Display -->
+            <div class="error-message" id="errorMessage" style="display: none;">
+                <h3>⚠️ Error Occurred</h3>
+                <p id="errorText"></p>
+                <button type="button" onclick="hideError()">OK</button>
+            </div>
+
+            <!-- Success Message -->
+            <div class="success-message" id="successMessage" style="display: none;">
+                <h3>✅ Processing Complete</h3>
+                <p>Meeting minutes have been successfully generated!</p>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>© 2024 Rapid Minutes Export - AI Meeting Minutes Generation System powered by Ollama</p>
+            <p>Designed with MECE, SESE, ICE, and 82 Rule principles</p>
+        </footer>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
