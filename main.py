@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     logger.info("Starting Rapid Minutes Export Application")
     file_manager = FileManager()
-    file_manager.ensure_directories()
+    await file_manager._initialize_directories()
     yield
     logger.info("Shutting down Rapid Minutes Export Application")
 
@@ -73,6 +73,10 @@ async def read_root():
         </body>
         </html>
         """)
+
+@app.get("/favicon.ico")
+async def favicon():
+    return FileResponse("static/favicon.ico")
 
 @app.get("/health")
 async def health_check():

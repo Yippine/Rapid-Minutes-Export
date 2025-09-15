@@ -53,18 +53,28 @@ class FileManager:
         self._file_registry: Dict[str, FileMetadata] = {}
         self._registry_file = self.base_path / "file_registry.json"
         
-        # Ensure directories exist
-        asyncio.create_task(self._initialize_directories())
+        # Ensure directories exist synchronously
+        self._initialize_directories_sync()
         
         logger.info(f"📁 File Manager initialized - base path: {self.base_path}")
     
+    def _initialize_directories_sync(self):
+        """Create necessary directories synchronously"""
+        directories = [self.base_path, self.upload_dir, self.temp_dir, self.output_dir]
+
+        for directory in directories:
+            directory.mkdir(parents=True, exist_ok=True)
+
+        # Load existing registry synchronously
+        self._load_registry_sync()
+
     async def _initialize_directories(self):
         """Create necessary directories"""
         directories = [self.base_path, self.upload_dir, self.temp_dir, self.output_dir]
-        
+
         for directory in directories:
             directory.mkdir(parents=True, exist_ok=True)
-        
+
         # Load existing registry
         await self._load_registry()
     
@@ -374,16 +384,16 @@ class FileManager:
         
         return total_size
     
-    async def _load_registry(self):
-        """Load file registry from disk"""
+    def _load_registry_sync(self):
+        """Load file registry from disk synchronously"""
         if not self._registry_file.exists():
             return
-        
+
         try:
-            async with aiofiles.open(self._registry_file, 'r') as f:
-                data = await f.read()
+            with open(self._registry_file, 'r') as f:
+                data = f.read()
                 registry_data = json.loads(data)
-            
+
             # Reconstruct FileMetadata objects
             for file_id, meta_dict in registry_data.items():
                 self._file_registry[file_id] = FileMetadata(
@@ -398,9 +408,40 @@ class FileManager:
                     tags=meta_dict['tags'],
                     custom_metadata=meta_dict['custom_metadata']
                 )
-            
+
             logger.info(f"📋 Loaded {len(self._file_registry)} files from registry")
-            
+
+        except Exception as e:
+            logger.error(f"❌ Error loading file registry: {e}")
+            self._file_registry = {}
+
+    async def _load_registry(self):
+        """Load file registry from disk"""
+        if not self._registry_file.exists():
+            return
+
+        try:
+            async with aiofiles.open(self._registry_file, 'r') as f:
+                data = await f.read()
+                registry_data = json.loads(data)
+
+            # Reconstruct FileMetadata objects
+            for file_id, meta_dict in registry_data.items():
+                self._file_registry[file_id] = FileMetadata(
+                    file_id=meta_dict['file_id'],
+                    original_name=meta_dict['original_name'],
+                    stored_path=meta_dict['stored_path'],
+                    file_size=meta_dict['file_size'],
+                    mime_type=meta_dict['mime_type'],
+                    created_at=datetime.fromisoformat(meta_dict['created_at']),
+                    last_accessed=datetime.fromisoformat(meta_dict['last_accessed']),
+                    checksum=meta_dict['checksum'],
+                    tags=meta_dict['tags'],
+                    custom_metadata=meta_dict['custom_metadata']
+                )
+
+            logger.info(f"📋 Loaded {len(self._file_registry)} files from registry")
+
         except Exception as e:
             logger.error(f"❌ Error loading file registry: {e}")
             self._file_registry = {}

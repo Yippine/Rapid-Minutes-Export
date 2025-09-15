@@ -53,7 +53,7 @@ class OllamaClient:
     
     def __init__(self, base_url: Optional[str] = None, model: Optional[str] = None):
         """Initialize Ollama client with configuration"""
-        self.base_url = base_url or settings.ollama_url
+        self.base_url = base_url or settings.ollama_host
         self.model = model or settings.ollama_model
         self.timeout = aiohttp.ClientTimeout(total=settings.ollama_timeout)
         self.max_retries = settings.ollama_max_retries
