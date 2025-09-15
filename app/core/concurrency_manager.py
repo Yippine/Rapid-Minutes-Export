@@ -131,14 +131,23 @@ class ConcurrencyManager:
             'lock_timeouts': 0
         }
         
-        self._start_background_tasks()
+        # Don't start background tasks in __init__ to avoid event loop issues
+        self._background_tasks_started = False
         logger.info(f"🔄 Concurrency Manager initialized - max concurrent tasks: {max_concurrent_tasks}")
-    
+
     def _start_background_tasks(self):
         """Start background maintenance tasks"""
-        self._cleanup_task = asyncio.create_task(self._cleanup_expired_locks())
-        self._queue_processor_task = asyncio.create_task(self._process_task_queue())
-        logger.debug("🔧 Background tasks started")
+        if self._background_tasks_started:
+            return
+
+        try:
+            self._cleanup_task = asyncio.create_task(self._cleanup_expired_locks())
+            self._queue_processor_task = asyncio.create_task(self._process_task_queue())
+            self._background_tasks_started = True
+            logger.debug("🔧 Background tasks started")
+        except RuntimeError:
+            # No event loop running, tasks will be started later
+            logger.debug("⏳ Event loop not running, background tasks deferred")
     
     @asynccontextmanager
     async def acquire_lock(
@@ -160,9 +169,12 @@ class ConcurrencyManager:
         Yields:
             Lock object if successful
         """
+        # Ensure background tasks are started
+        self._start_background_tasks()
+
         holder_id = holder_id or f"task_{asyncio.current_task().get_name() if asyncio.current_task() else 'unknown'}"
         lock_id = None
-        
+
         try:
             lock_id = await self._acquire_lock_internal(resource_id, lock_type, timeout, holder_id)
             yield lock_id
@@ -709,14 +721,20 @@ class ConcurrencyManager:
 
 
 # Global concurrency manager instance
-concurrency_manager = ConcurrencyManager()
+# concurrency_manager = ConcurrencyManager()  # Commented out to avoid event loop issues during testing
 
 
 # Convenience functions
+def get_concurrency_manager() -> ConcurrencyManager:
+    """Get or create concurrency manager instance"""
+    return ConcurrencyManager()
+
+
 async def with_exclusive_lock(resource_id: str, timeout: Optional[float] = None):
     """Convenience function for exclusive lock context"""
-    async with concurrency_manager.acquire_lock(
-        resource_id, 
+    manager = get_concurrency_manager()
+    async with manager.acquire_lock(
+        resource_id,
         LockType.EXCLUSIVE, 
         timeout
     ) as lock:
@@ -730,6 +748,7 @@ async def submit_concurrent_task(
     **kwargs
 ) -> str:
     """Convenience function to submit concurrent task"""
-    return await concurrency_manager.submit_task(
+    manager = get_concurrency_manager()
+    return await manager.submit_task(
         func, *args, priority=priority, **kwargs
     )

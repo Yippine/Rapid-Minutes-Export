@@ -24,18 +24,34 @@ async def upload_file(file: UploadFile = File(...)):
         # Validate file
         if not file.filename:
             raise HTTPException(status_code=400, detail="No file provided")
-        
+
+        # Sanitize filename
+        import re
+        if not re.match(r'^[a-zA-Z0-9._-]+$', file.filename) or '..' in file.filename:
+            raise HTTPException(status_code=400, detail="Invalid filename")
+
         # Check file type
         allowed_extensions = ['.txt', '.doc', '.docx']
         file_ext = '.' + file.filename.split('.')[-1].lower()
         if file_ext not in allowed_extensions:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Unsupported file type. Allowed: {allowed_extensions}"
             )
-        
+
+        # Check file size
+        if file.size and file.size > 10 * 1024 * 1024:  # 10MB limit
+            raise HTTPException(status_code=413, detail="File too large (max 10MB)")
+
         # Read file content
         file_content = await file.read()
+
+        # Validate content size
+        if len(file_content) == 0:
+            raise HTTPException(status_code=400, detail="Empty file not allowed")
+
+        if len(file_content) > 10 * 1024 * 1024:  # 10MB limit
+            raise HTTPException(status_code=413, detail="File content too large")
         
         # Save file
         file_info = file_manager.save_uploaded_file(file_content, file.filename)
@@ -55,10 +71,21 @@ async def upload_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Failed to upload file")
 
 
+def validate_file_id(file_id: str) -> str:
+    """Validate file_id to prevent path traversal"""
+    import re
+    if not re.match(r'^[a-zA-Z0-9-]+$', file_id) or '..' in file_id or len(file_id) != 36:
+        raise HTTPException(status_code=400, detail="Invalid file ID format")
+    return file_id
+
+
 @router.post("/api/generate/{file_id}")
 async def generate_minutes(file_id: str, background_tasks: BackgroundTasks):
     """Generate meeting minutes from uploaded file"""
     try:
+        # Validate file_id
+        file_id = validate_file_id(file_id)
+
         # Check if file exists
         file_info = file_manager.get_file_info(file_id)
         if not file_info:
@@ -85,6 +112,9 @@ async def generate_minutes(file_id: str, background_tasks: BackgroundTasks):
 async def get_processing_status(file_id: str):
     """Get processing status of a file"""
     try:
+        # Validate file_id
+        file_id = validate_file_id(file_id)
+
         file_info = file_manager.get_file_info(file_id)
         if not file_info:
             raise HTTPException(status_code=404, detail="File not found")
@@ -108,9 +138,12 @@ async def get_processing_status(file_id: str):
 async def download_file(file_type: str, file_id: str):
     """Download generated Word or PDF file"""
     try:
+        # Validate file_id
+        file_id = validate_file_id(file_id)
+
         if file_type not in ['word', 'pdf']:
             raise HTTPException(status_code=400, detail="Invalid file type. Use 'word' or 'pdf'")
-        
+
         file_path = file_manager.get_output_file_path(file_id, file_type)
         if not file_path:
             raise HTTPException(status_code=404, detail=f"Generated {file_type} file not found")
@@ -140,6 +173,9 @@ async def download_file(file_type: str, file_id: str):
 async def delete_file(file_id: str):
     """Delete uploaded file and generated outputs"""
     try:
+        # Validate file_id
+        file_id = validate_file_id(file_id)
+
         file_info = file_manager.get_file_info(file_id)
         if not file_info:
             raise HTTPException(status_code=404, detail="File not found")

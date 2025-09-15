@@ -23,7 +23,42 @@ const successMessage = document.getElementById('successMessage');
 // Initialize app
 document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
+    initializeEnhancedUX();
 });
+
+function initializeEnhancedUX() {
+    // Initialize enhanced UX features if available
+    if (window.enhancedUX) {
+        // Setup tooltips for all elements with title attributes
+        window.enhancedUX.setupTooltips();
+
+        // Setup keyboard navigation
+        window.enhancedUX.setupKeyboardNavigation();
+
+        // Show welcome guide for first-time users
+        setTimeout(() => {
+            const hasVisited = localStorage.getItem('rapid-minutes-visited');
+            if (!hasVisited) {
+                showWelcomeGuide();
+                localStorage.setItem('rapid-minutes-visited', 'true');
+            }
+        }, 1000);
+    }
+}
+
+function showWelcomeGuide() {
+    if (window.enhancedUX) {
+        const actions = [{
+            text: 'Get Started',
+            style: 'primary',
+            onClick: `document.getElementById('uploadArea').scrollIntoView({behavior: 'smooth'})`
+        }];
+
+        window.enhancedUX.showNotification('info', 'Welcome to Rapid Minutes Export!',
+            'Transform your meeting transcripts into professional minutes in just 3 simple steps: Upload → Process → Download',
+            actions);
+    }
+}
 
 function setupEventListeners() {
     // File input change
@@ -73,14 +108,14 @@ function processFile(file) {
     // Validate file type
     const allowedTypes = ['text/plain'];
     if (!allowedTypes.includes(file.type) && !file.name.toLowerCase().endsWith('.txt')) {
-        showError('Please select a .txt text file');
+        showError('Invalid file type. Only .txt files are supported.', 'upload');
         return;
     }
     
     // Validate file size (10MB limit)
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
-        showError('File size cannot exceed 10MB');
+        showError('File size exceeds the 10MB limit.', 'upload');
         return;
     }
     
@@ -99,7 +134,7 @@ function processFile(file) {
 
 async function handleGenerate() {
     if (!window.selectedFile) {
-        showError('Please select a file first');
+        showError('No file selected. Please choose a file first.', 'upload');
         return;
     }
     
@@ -140,7 +175,8 @@ async function handleGenerate() {
         
     } catch (error) {
         console.error('Generation error:', error);
-        showError(error.message || 'Processing failed, please try again');
+        window.errorHandler?.logError('Generation Error', error, { operation: 'processing', fileId: currentFileId });
+        showError(error.message || 'Processing failed, please try again', 'processing');
         resetGenerateButton();
     }
 }
@@ -148,9 +184,15 @@ async function handleGenerate() {
 function showProgress() {
     progressContainer.style.display = 'block';
     generateButton.style.display = 'none';
-    
+
     progressFill.style.width = '10%';
     progressText.textContent = 'Starting processing...';
+
+    // Use enhanced UX for progress notification
+    if (window.enhancedUX) {
+        window.enhancedUX.showNotification('info', 'Processing Started',
+            'AI is now analyzing your meeting transcript. This may take a few minutes.', []);
+    }
 }
 
 function startProcessMonitoring() {
@@ -173,14 +215,15 @@ function startProcessMonitoring() {
                 showDownloadSection();
             } else if (status.status === 'failed') {
                 clearInterval(processCheckInterval);
-                showError(status.error || 'Processing failed');
+                showError(status.error || 'Processing failed', 'processing');
                 resetGenerateButton();
             }
             
         } catch (error) {
             console.error('Status check error:', error);
+            window.errorHandler?.logError('Status Check Error', error, { operation: 'processing', fileId: currentFileId });
             clearInterval(processCheckInterval);
-            showError('Unable to get processing status');
+            showError('Unable to get processing status', 'processing');
             resetGenerateButton();
         }
     }, 2000); // Check every 2 seconds
@@ -204,16 +247,27 @@ function updateProgress(status) {
 function showDownloadSection() {
     downloadSection.style.display = 'block';
     downloadSection.classList.add('slide-in');
-    
+
     // Setup download links
     downloadWord.href = `/api/download/word/${currentFileId}`;
     downloadWord.style.display = 'inline-block';
-    
+
     // For now, hide PDF download as it's not implemented
     // downloadPdf.href = `/api/download/pdf/${currentFileId}`;
     // downloadPdf.style.display = 'inline-block';
-    
-    showSuccess();
+
+    // Enhanced success notification
+    if (window.enhancedUX) {
+        const actions = [{
+            text: 'Download Now',
+            style: 'primary',
+            onClick: `document.getElementById('downloadWord').click()`
+        }];
+        window.enhancedUX.showNotification('success', 'Processing Complete!',
+            'Your meeting minutes have been generated successfully. Click below to download.', actions);
+    } else {
+        showSuccess();
+    }
 }
 
 function handleReset() {
@@ -245,10 +299,19 @@ function resetGenerateButton() {
     progressContainer.style.display = 'none';
 }
 
-function showError(message) {
-    document.getElementById('errorText').textContent = message;
-    errorMessage.style.display = 'block';
-    errorMessage.classList.add('fade-in');
+function showError(message, operation = null) {
+    // Use enhanced error handler if available
+    if (window.errorHandler && operation) {
+        const error = new Error(message);
+        window.errorHandler.showDetailedError(error, operation);
+    } else if (window.errorHandler) {
+        window.errorHandler.showUserFriendlyError('Error', message);
+    } else {
+        // Fallback to basic error display
+        document.getElementById('errorText').textContent = message;
+        errorMessage.style.display = 'block';
+        errorMessage.classList.add('fade-in');
+    }
 }
 
 function hideError() {

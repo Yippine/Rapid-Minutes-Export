@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: rapid-minutes-export-service
+  namespace: rapid-minutes
+  labels:
+    app: rapid-minutes-export
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: rapid-minutes-export
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rapid-minutes-config
+  namespace: rapid-minutes
+data:
+  cors_origins: "https://yourapp.com,https://www.yourapp.com"
+  max_file_size: "10485760"
+  upload_timeout: "60"
+  processing_timeout: "300"
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rapid-minutes-upload-pvc
+  namespace: rapid-minutes
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: fast-ssd
