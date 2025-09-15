@@ -128,7 +128,32 @@ docs/operations/project-status/MEETING_MINUTES_AUTOMATION_MASTER_PLAN_v0.2.0.md 
 ```bash
 # 檢查所有規範統一性
 請檢查所有規範的統一性
+
+# 版本控制權威檢查 (新增 - 防止版本資訊錯亂)
+python scripts/version_control_check.py
 ```
+
+### ⚡ 版本控制自動化規範 (v0.3.0 新增)
+
+為防止版本號、Phase概念、Commit message錯亂，每次執行"""請檢查是否更新其他相關規範 沒問題就依照既有慣例上版 謝謝"""時：
+
+#### 🔍 必要檢查流程
+1. **執行版本權威檢查**: `python scripts/version_control_check.py`
+2. **確認追蹤規範狀態**: 4個追蹤規範文檔完成度
+3. **使用生成的Commit Message**: 避免手動編寫錯誤資訊
+4. **確認git tag與實際進度一致**: 防止版本跳躍
+
+#### 📋 權威資訊來源 (MECE原則)
+- **追蹤規範完成度**: 決定版本號 (v0.1-v0.4對應4個規範)
+- **DEEP_ANALYSIS內部Phase**: 僅影響該規範內部進度描述
+- **整體專案狀態**: 由4個追蹤規範總完成度決定
+- **Commit message**: 由version_control_check.py自動生成
+
+#### 🎯 防錯機制 (ICE + 82法則)
+- **直覺**: 一個指令知道所有版本狀態
+- **精簡**: 只需執行檢查腳本
+- **覆蓋**: 涵蓋版本號、Phase、Commit所有資訊
+- **20%努力**: 一次檢查解決80%版本控制問題
 
 ---
 
