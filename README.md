@@ -14,10 +14,10 @@
 Rapid Minutes Export is a fully automated meeting minutes generation system that converts unstructured meeting transcripts into professional Word-formatted meeting minutes. The system features iPhone-level user experience design with just 3 simple steps to complete the entire workflow.
 
 ### 🚀 Core Features
-
+   
 - **🎯 3-Step Process**: Upload → Generate → Download
 - **🤖 AI-Powered Extraction**: Automatically identifies key meeting information
-- **📄 Professional Documents**: Generates standardized Word meeting minutes  
+- **📄 Professional Documents**: Generates standardized Word meeting minutes
 - **🌐 Web Interface**: Intuitive drag-and-drop upload interface
 - **⚡ Fast Processing**: 10MB files processed within 30 seconds
 - **🔧 Easy Deployment**: One-click startup, ready to use out of the box
@@ -54,7 +54,7 @@ python main.py
 
 ### 3. Using the System
 
-1. **Upload Meeting Text**: 
+1. **Upload Meeting Text**:
    - Visit http://localhost:8000
    - Drag and drop or select .txt format meeting transcript files
 
