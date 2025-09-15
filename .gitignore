@@ -208,3 +208,46 @@ __marimo__/
 
 # Claude Code
 .claude/
+
+# Rapid-Minutes-Export Specific
+# Data directories (runtime generated)
+data/output/
+data/temp/
+data/input/*.txt
+data/input/*.doc
+data/input/*.docx
+
+# Upload directories (test files and user uploads)
+uploads/
+temp_uploads/
+
+# Generated documents
+*.docx
+*.pdf
+!templates/**/*.docx
+
+# Application runtime files
+app_pid.tmp
+*.pid
+
+# Logs
+logs/
+*.log
+
+# Environment and secrets
+.env.local
+.env.production
+secrets/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# IDE specific
+.vscode/settings.json
+.idea/workspace.xml
+
+# Testing artifacts
+test_outputs/
+coverage_reports/
+.coverage*

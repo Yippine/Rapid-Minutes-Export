@@ -23,7 +23,8 @@ except ImportError:
     DOCX_AVAILABLE = False
 
 from ..ai.extractor import MeetingMinutes, MeetingBasicInfo, Attendee, DiscussionTopic, ActionItem, Decision
-# 延遲導入避免循環依賴
+
+# Use TYPE_CHECKING to avoid circular imports
 if TYPE_CHECKING:
     from ..core.template_controller import TemplateConfig
 
@@ -197,7 +198,7 @@ class DataInjector:
         self,
         document: Union['Document', str],
         meeting_minutes: MeetingMinutes,
-        template_config: TemplateConfig,
+        template_config: 'TemplateConfig',
         formatting_preset: str = 'standard'
     ) -> InjectionResult:
         """
@@ -297,7 +298,7 @@ class DataInjector:
         doc: 'Document',
         rule: InjectionRule,
         data: Any,
-        template_config: TemplateConfig
+        template_config: 'TemplateConfig'
     ) -> bool:
         """Inject data for a specific field"""
         try:
@@ -634,7 +635,7 @@ class DataInjector:
     async def _inject_data_text_mode(
         self, 
         meeting_minutes: MeetingMinutes, 
-        template_config: TemplateConfig
+        template_config: 'TemplateConfig'
     ) -> InjectionResult:
         """Fallback text-mode data injection"""
         logger.info("📝 Using text-mode data injection (python-docx not available)")

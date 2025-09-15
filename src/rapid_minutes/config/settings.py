@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     templates_dir: str = Field(default="./templates", env="TEMPLATES_DIR")
     data_dir: str = Field(default="./data", env="DATA_DIR")
     input_dir: str = Field(default="./data/input", env="INPUT_DIR")
+    upload_dir: str = Field(default="./uploads", env="UPLOAD_DIR")
     output_dir: str = Field(default="./data/output", env="OUTPUT_DIR")
     temp_dir: str = Field(default="./data/temp", env="TEMP_DIR")
     static_dir: str = Field(default="./static", env="STATIC_DIR")
