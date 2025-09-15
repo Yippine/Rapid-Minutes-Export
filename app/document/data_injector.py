@@ -6,7 +6,7 @@ Implements SESE principle - Simple, Effective, Systematic, Exhaustive data proce
 
 import logging
 import re
-from typing import Dict, List, Optional, Union, Any, Tuple
+from typing import Dict, List, Optional, Union, Any, Tuple, TYPE_CHECKING
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -23,7 +23,9 @@ except ImportError:
     DOCX_AVAILABLE = False
 
 from ..ai.extractor import MeetingMinutes, MeetingBasicInfo, Attendee, DiscussionTopic, ActionItem, Decision
-from ..core.template_controller import TemplateConfig
+# 延遲導入避免循環依賴
+if TYPE_CHECKING:
+    from ..core.template_controller import TemplateConfig
 
 logger = logging.getLogger(__name__)
 
