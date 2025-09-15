@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rapid-minutes-export
+  namespace: rapid-minutes
+  labels:
+    app: rapid-minutes-export
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: rapid-minutes-export
+  template:
+    metadata:
+      labels:
+        app: rapid-minutes-export
+        version: v1
+    spec:
+      containers:
+      - name: rapid-minutes-export
+        image: ghcr.io/yippine/rapid-minutes-export:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: MAX_FILE_SIZE
+          value: "10485760"
+        - name: MAX_CONCURRENT_PROCESSES
+          value: "3"
+        - name: CORS_ORIGINS
+          valueFrom:
+            configMapKeyRef:
+              name: rapid-minutes-config
+              key: cors_origins
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: upload-storage
+          mountPath: /app/uploads
+        - name: temp-storage
+          mountPath: /app/temp
+      volumes:
+      - name: upload-storage
+        persistentVolumeClaim:
+          claimName: rapid-minutes-upload-pvc
+      - name: temp-storage
+        emptyDir:
+          sizeLimit: 1Gi
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000

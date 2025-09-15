@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     
     # File Processing Configuration
     max_file_size_mb: int = Field(default=10, env="MAX_FILE_SIZE_MB")
+    max_batch_upload_files: int = Field(default=10, env="MAX_BATCH_UPLOAD_FILES")
     allowed_file_types: str = Field(default=".txt", env="ALLOWED_FILE_TYPES")
     upload_timeout_seconds: int = Field(default=30, env="UPLOAD_TIMEOUT_SECONDS")
     processing_timeout_seconds: int = Field(default=300, env="PROCESSING_TIMEOUT_SECONDS")
@@ -150,6 +151,13 @@ class Settings(BaseSettings):
         """Ensure max file size is reasonable"""
         if v <= 0 or v > 100:
             raise ValueError("Max file size must be between 1 and 100 MB")
+        return v
+
+    @validator("max_batch_upload_files")
+    def validate_max_batch_files(cls, v):
+        """Ensure max batch upload files is reasonable"""
+        if v <= 0 or v > 50:
+            raise ValueError("Max batch upload files must be between 1 and 50")
         return v
     
     @validator("log_level")

@@ -120,7 +120,7 @@ class ConnectionManager:
             base_url=settings.ollama_url,
             model=settings.ollama_model,
             priority=10,
-            max_concurrent=settings.max_concurrent_requests or 5,
+            max_concurrent=settings.max_concurrent_processes or 5,
             timeout=settings.ollama_timeout or 60.0
         )
         
@@ -601,7 +601,12 @@ class ConnectionManager:
 
 
 # Global connection manager instance
-connection_manager = ConnectionManager()
+# connection_manager = ConnectionManager()  # Commented out to avoid settings issues during testing
+
+
+def get_connection_manager() -> ConnectionManager:
+    """Get or create connection manager instance"""
+    return ConnectionManager()
 
 
 async def get_ai_response(
@@ -622,7 +627,8 @@ async def get_ai_response(
     Returns:
         GenerationResponse
     """
-    return await connection_manager.generate_with_failover(
+    manager = get_connection_manager()
+    return await manager.generate_with_failover(
         prompt=prompt,
         model=model,
         system=system,

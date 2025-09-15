@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager
 from rapid_minutes.config.settings import get_settings
 from rapid_minutes.web.routes import router
 from rapid_minutes.storage.file_manager import FileManager
+from app.diagnostics import SystemDiagnostics
 
 settings = get_settings()
 
@@ -35,17 +36,17 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Rapid Minutes Export",
-    description="AI-powered meeting minutes generation from text to Word documents",
-    version="0.2.0",
+    description="🏆 Excellence-Level AI Meeting Minutes Automation System - Achieving iPhone-level UX, Enterprise-grade stability, and Academic-level code quality",
+    version="1.0.0",
     lifespan=lifespan
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins.split(",") if isinstance(settings.cors_origins, str) else settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
 )
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -76,6 +77,70 @@ async def read_root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "rapid-minutes-export"}
+
+@app.get("/diagnostics")
+async def system_diagnostics():
+    """Advanced system diagnostics for Phase 3 excellence monitoring"""
+    try:
+        diagnostics = SystemDiagnostics()
+        report = await diagnostics.run_full_diagnostics(enable_auto_repair=False)
+
+        return {
+            "timestamp": report.timestamp.isoformat(),
+            "overall_score": report.overall_score,
+            "overall_status": report.overall_status,
+            "summary": report.summary,
+            "recommendations": report.recommendations[:10],  # Limit for API response
+            "component_scores": {
+                component: sum(r.score for r in report.diagnostic_results if r.component == component) /
+                          len([r for r in report.diagnostic_results if r.component == component])
+                for component in set(r.component for r in report.diagnostic_results)
+            }
+        }
+    except Exception as e:
+        logger.error(f"Diagnostics error: {e}")
+        return {"status": "error", "message": str(e)}
+
+@app.get("/diagnostics/full")
+async def full_system_diagnostics():
+    """Complete system diagnostics with auto-repair"""
+    try:
+        diagnostics = SystemDiagnostics()
+        report = await diagnostics.run_full_diagnostics(enable_auto_repair=True)
+
+        # Export detailed report
+        await diagnostics.export_diagnostics_report(report, "logs/latest_diagnostics.json")
+
+        return {
+            "timestamp": report.timestamp.isoformat(),
+            "overall_score": report.overall_score,
+            "overall_status": report.overall_status,
+            "summary": report.summary,
+            "recommendations": report.recommendations,
+            "diagnostic_results": [
+                {
+                    "component": r.component,
+                    "test_name": r.test_name,
+                    "passed": r.passed,
+                    "score": r.score,
+                    "message": r.message,
+                    "recommendations": r.recommendations
+                }
+                for r in report.diagnostic_results
+            ],
+            "repair_results": [
+                {
+                    "action": r.action.value,
+                    "success": r.success,
+                    "message": r.message,
+                    "timestamp": r.timestamp.isoformat()
+                }
+                for r in report.repair_results
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Full diagnostics error: {e}")
+        return {"status": "error", "message": str(e)}
 
 if __name__ == "__main__":
     uvicorn.run(

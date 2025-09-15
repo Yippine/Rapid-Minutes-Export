@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: ServiceMonitor
+metadata:
+  name: rapid-minutes-export-monitor
+  namespace: rapid-minutes
+  labels:
+    app: rapid-minutes-export
+spec:
+  selector:
+    matchLabels:
+      app: rapid-minutes-export
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: rapid-minutes-export-alerts
+  namespace: rapid-minutes
+  labels:
+    app: rapid-minutes-export
+spec:
+  groups:
+  - name: rapid-minutes-export.rules
+    rules:
+    - alert: RapidMinutesExportDown
+      expr: up{job="rapid-minutes-export-service"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Rapid Minutes Export service is down"
+        description: "Rapid Minutes Export service has been down for more than 1 minute."
+
+    - alert: RapidMinutesExportHighErrorRate
+      expr: rate(http_requests_total{job="rapid-minutes-export-service",status=~"5.."}[5m]) > 0.1
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High error rate in Rapid Minutes Export"
+        description: "Error rate is {{ $value }} errors per second."
+
+    - alert: RapidMinutesExportHighLatency
+      expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="rapid-minutes-export-service"}[5m])) > 2
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High latency in Rapid Minutes Export"
+        description: "95th percentile latency is {{ $value }} seconds."
+
+    - alert: RapidMinutesExportHighMemoryUsage
+      expr: container_memory_usage_bytes{pod=~"rapid-minutes-export-.*"} / container_spec_memory_limit_bytes > 0.9
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High memory usage in Rapid Minutes Export"
+        description: "Memory usage is above 90%."
+
+    - alert: RapidMinutesExportHighCPUUsage
+      expr: rate(container_cpu_usage_seconds_total{pod=~"rapid-minutes-export-.*"}[5m]) / on(pod) container_spec_cpu_quota * 100 > 80
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High CPU usage in Rapid Minutes Export"
+        description: "CPU usage is above 80%."

@@ -4,30 +4,40 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🎯 Rapid Minutes Export - AI Meeting Minutes Automation System</title>
+    <meta name="description" content="Transform meeting transcripts into professional minutes using AI in 3 simple steps">
+    <meta name="keywords" content="meeting minutes, AI, transcript processing, automation">
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Enhanced accessibility and SEO -->
+    <meta name="theme-color" content="#667eea">
+    <link rel="manifest" href="/static/manifest.json">
 </head>
 <body>
+    <!-- Skip navigation link for screen readers -->
+    <a href="#main-content" class="skip-link" tabindex="1">Skip to main content</a>
     <div class="container">
         <header class="header">
             <h1>🎯 Rapid Minutes Export</h1>
             <p class="subtitle">AI Meeting Minutes Automation System - Professional meeting minutes in 3 steps</p>
         </header>
 
-        <main class="main-content">
+        <main class="main-content" id="main-content" role="main">
             <!-- Step 1: Upload -->
-            <section class="step-section" id="upload-section">
+            <section class="step-section" id="upload-section" role="region" aria-labelledby="upload-heading">
                 <div class="step-header">
-                    <span class="step-number">1</span>
-                    <h2>Upload Meeting Transcript</h2>
+                    <span class="step-number" role="img" aria-label="Step 1">1</span>
+                    <h2 id="upload-heading">Upload Meeting Transcript</h2>
                 </div>
                 
-                <div class="upload-area" id="uploadArea">
+                <div class="upload-area" id="uploadArea" title="Upload your meeting transcript file here">
                     <div class="upload-content">
                         <div class="upload-icon">📄</div>
                         <p class="upload-text">Drag file here or click to select</p>
-                        <p class="upload-hint">Supports .txt format, max 10MB</p>
-                        <input type="file" id="fileInput" accept=".txt" style="display: none;">
-                        <button type="button" class="upload-button" onclick="document.getElementById('fileInput').click()">
+                        <p class="upload-hint" id="upload-hint">Supports .txt format, max 10MB</p>
+                        <input type="file" id="fileInput" accept=".txt" style="display: none;" aria-label="Select meeting transcript file">
+                        <button type="button" class="upload-button" onclick="document.getElementById('fileInput').click()"
+                                title="Click to browse and select your .txt file" aria-describedby="upload-hint">
                             Select File
                         </button>
                     </div>
@@ -48,11 +58,16 @@
                 </div>
                 
                 <div class="generate-content">
-                    <button type="button" class="generate-button" id="generateButton">
+                    <button type="button" class="generate-button" id="generateButton"
+                            title="Start AI processing to generate professional meeting minutes"
+                            aria-describedby="generate-hint">
                         🚀 Start Generate Meeting Minutes
                     </button>
-                    
-                    <div class="progress-container" id="progressContainer" style="display: none;">
+                    <p class="generate-hint" id="generate-hint" style="margin-top: 10px; color: #718096; font-size: 0.9rem;">
+                        AI will analyze your transcript and create structured meeting minutes
+                    </p>
+
+                    <div class="progress-container" id="progressContainer" style="display: none;" role="progressbar" aria-live="polite">
                         <div class="progress-bar">
                             <div class="progress-fill" id="progressFill"></div>
                         </div>
@@ -70,15 +85,21 @@
                 
                 <div class="download-content">
                     <div class="download-options">
-                        <a href="#" class="download-link" id="downloadWord" style="display: none;">
+                        <a href="#" class="download-link" id="downloadWord" style="display: none;"
+                           title="Download your meeting minutes in Microsoft Word format"
+                           aria-label="Download Word document with meeting minutes">
                             📝 Download Word Format
                         </a>
-                        <a href="#" class="download-link" id="downloadPdf" style="display: none;">
+                        <a href="#" class="download-link" id="downloadPdf" style="display: none;"
+                           title="Download your meeting minutes in PDF format"
+                           aria-label="Download PDF document with meeting minutes">
                             📄 Download PDF Format
                         </a>
                     </div>
-                    
-                    <button type="button" class="reset-button" id="resetButton">
+
+                    <button type="button" class="reset-button" id="resetButton"
+                            title="Clear all data and start with a new transcript"
+                            aria-label="Reset application to upload new file">
                         🔄 Start Over
                     </button>
                 </div>
@@ -104,6 +125,8 @@
         </footer>
     </div>
 
+    <script src="/static/js/enhanced-ux.js"></script>
+    <script src="/static/js/error-handler.js"></script>
     <script src="/static/js/app.js"></script>
 </body>
 </html>
