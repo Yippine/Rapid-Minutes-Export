@@ -49,7 +49,7 @@ dateparser==1.2.0
 regex==2023.10.3
 
 # Performance and Concurrency
-anyio==4.1.0
+anyio==3.7.1
 asyncio-throttle==1.0.2
 
 # Error Handling and Validation
