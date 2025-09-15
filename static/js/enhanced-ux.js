@@ -417,6 +417,17 @@ class EnhancedUX {
         document.head.appendChild(style);
     }
 
+    setupTooltips() {
+        // Setup tooltips for all elements with title attributes
+        document.querySelectorAll('[title]').forEach(element => {
+            const title = element.getAttribute('title');
+            if (title) {
+                this.addTooltip(element, title);
+                element.removeAttribute('title'); // Remove original title to prevent double tooltips
+            }
+        });
+    }
+
     addTooltip(element, text) {
         element.classList.add('tooltip');
         const tooltipContent = document.createElement('div');
