@@ -219,6 +219,7 @@ data/input/*.docx
 
 # Upload directories (test files and user uploads)
 uploads/
+temp/
 temp_uploads/
 
 # Generated documents
