@@ -5,7 +5,7 @@ Implements ICE principle - Intuitive download interface with comprehensive file 
 """
 
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, TYPE_CHECKING
 from fastapi import APIRouter, HTTPException, Depends, Query, Response
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
@@ -14,10 +14,13 @@ import io
 from datetime import datetime
 
 from ..core.output_manager import OutputController, OutputFormat
-from ..core.template_controller import TemplateController, TemplateType
 from ..document.pdf_generator import PDFGenerator, PDFGenerationOptions
 from ..storage.output_manager import OutputManager
 from ..config import settings
+
+# 延遲導入避免循環依賴
+if TYPE_CHECKING:
+    from ..core.template_controller import TemplateController, TemplateType
 
 logger = logging.getLogger(__name__)
 

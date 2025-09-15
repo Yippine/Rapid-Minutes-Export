@@ -5,7 +5,7 @@ Implements ICE principle - Intuitive upload interface with comprehensive error h
 """
 
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, TYPE_CHECKING
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends, BackgroundTasks
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -14,8 +14,16 @@ from datetime import datetime
 
 from ..core.file_processor import FileProcessor, ProcessedFile, FileStatus, FileProcessingOptions
 from ..core.meeting_processor import MeetingProcessor, ProcessingJob, ProcessingPriority
-from ..core.template_controller import TemplateController, TemplateType
 from ..config import settings
+
+# 延遲導入避免循環依賴
+if TYPE_CHECKING:
+    from ..core.template_controller import TemplateController, TemplateType
+else:
+    # 運行時導入，避免循環依賴
+    def get_template_type():
+        from ..core.template_controller import TemplateType
+        return TemplateType
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +43,7 @@ class FileUploadResponse(BaseModel):
 class ProcessingOptions(BaseModel):
     """Processing options for uploaded file"""
     auto_process: bool = Field(default=True, description="Start processing automatically")
-    template_type: TemplateType = Field(default=TemplateType.STANDARD, description="Template type to use")
+    template_type: str = Field(default="standard", description="Template type to use")
     priority: ProcessingPriority = Field(default=ProcessingPriority.NORMAL, description="Processing priority")
     generate_pdf: bool = Field(default=True, description="Generate PDF output")
     extraction_options: Dict[str, Any] = Field(default_factory=dict, description="AI extraction options")
@@ -67,8 +75,9 @@ def get_meeting_processor() -> MeetingProcessor:
     return MeetingProcessor()
 
 
-def get_template_controller() -> TemplateController:
+def get_template_controller():
     """Get template controller instance"""
+    from ..core.template_controller import TemplateController
     return TemplateController()
 
 
@@ -379,7 +388,7 @@ async def get_supported_file_types(
 
 @router.get("/templates")
 async def get_available_templates(
-    template_controller: TemplateController = Depends(get_template_controller)
+    template_controller = Depends(get_template_controller)
 ):
     """Get list of available templates"""
     try:
