@@ -15,10 +15,10 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from app.main import app
-from app.api.upload import router as upload_router
-from app.api.process import router as process_router
-from app.api.download import router as download_router
+from src.rapid_minutes.main import app
+from src.rapid_minutes.api.upload import router as upload_router
+from src.rapid_minutes.api.process import router as process_router
+from src.rapid_minutes.api.download import router as download_router
 
 
 class TestUploadAPI:

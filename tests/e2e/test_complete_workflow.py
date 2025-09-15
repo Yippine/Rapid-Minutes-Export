@@ -15,16 +15,16 @@ from unittest.mock import patch, MagicMock
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from app.core.file_processor import FileProcessor, FileProcessingOptions
-from app.core.meeting_processor import MeetingProcessor, ProcessingPriority
-from app.core.template_controller import TemplateController, TemplateType
-from app.core.output_manager import OutputController
-from app.ai.extractor import MeetingMinutes, MeetingBasicInfo, Attendee, DiscussionTopic, ActionItem, Decision
-from app.document.word_engine import WordEngine
-from app.document.data_injector import DataInjector
-from app.document.pdf_generator import PDFGenerator
-from app.storage.template_storage import TemplateStorage, TemplateCategory
-from app.storage.output_manager import OutputManager
+from src.rapid_minutes.core.file_processor import FileProcessor, FileProcessingOptions
+from src.rapid_minutes.core.meeting_processor import MeetingProcessor, ProcessingPriority
+from src.rapid_minutes.core.template_controller import TemplateController, TemplateType
+from src.rapid_minutes.core.output_manager import OutputController
+from src.rapid_minutes.ai.extractor import MeetingMinutes, MeetingBasicInfo, Attendee, DiscussionTopic, ActionItem, Decision
+from src.rapid_minutes.document.word_engine import WordEngine
+from src.rapid_minutes.document.data_injector import DataInjector
+from src.rapid_minutes.document.pdf_generator import PDFGenerator
+from src.rapid_minutes.storage.template_storage import TemplateStorage, TemplateCategory
+from src.rapid_minutes.storage.output_manager import OutputManager
 
 
 @pytest.mark.e2e
@@ -231,7 +231,7 @@ class TestCompleteWorkflow:
             f.write("Test output content")
         
         # Step 2: Store file in output manager
-        from app.storage.output_manager import OutputFileType
+        from src.rapid_minutes.storage.output_manager import OutputFileType
         
         file_record = await self.output_manager.store_file(
             output_path,

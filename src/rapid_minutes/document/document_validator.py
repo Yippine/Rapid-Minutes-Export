@@ -1,9 +1,8 @@
 import logging
 import tempfile
 import os
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 from datetime import datetime
-from pathlib import Path
 
 # Optional magic import for MIME type detection
 try:

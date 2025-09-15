@@ -1,278 +1,470 @@
+"""
+Ollama LLM Client Module (C2 - AI Processing Layer)
+High-performance Ollama integration based on SYSTEM_ARCHITECTURE.md specifications
+Implements 82 Rule principle - 20% core functionality for 80% AI processing effectiveness
+"""
+
+import asyncio
 import logging
-import requests
 import json
-from typing import Dict, Any, Optional
-from rapid_minutes.config.settings import get_settings
+from typing import Dict, List, Optional, Union, AsyncIterator
+from dataclasses import dataclass
+from datetime import datetime
+import aiohttp
+import time
+
+from ..config import settings
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
+
+
+@dataclass
+class ModelInfo:
+    """Model information container"""
+    name: str
+    size: str
+    digest: str
+    modified_at: datetime
+    details: Dict[str, any]
+
+
+@dataclass
+class GenerationResponse:
+    """LLM generation response container"""
+    content: str
+    model: str
+    created_at: datetime
+    done: bool
+    total_duration: int
+    load_duration: int
+    prompt_eval_count: int
+    prompt_eval_duration: int
+    eval_count: int
+    eval_duration: int
+    context: List[int]
+    metadata: Dict[str, any]
 
 
 class OllamaClient:
-    def __init__(self):
-        self.host = settings.ollama_host
-        self.model = settings.ollama_model
-        self.session = requests.Session()
+    """
+    High-performance Ollama client with async support
+    Handles all LLM interactions for meeting minutes generation
+    """
+    
+    def __init__(self, base_url: Optional[str] = None, model: Optional[str] = None):
+        """Initialize Ollama client with configuration"""
+        self.base_url = base_url or settings.ollama_url
+        self.model = model or settings.ollama_model
+        self.timeout = aiohttp.ClientTimeout(total=settings.ollama_timeout)
+        self.max_retries = settings.ollama_max_retries
+        self.session: Optional[aiohttp.ClientSession] = None
+        self._connection_pool_size = 10
+        self._connection_pool_limit = 100
         
-    def health_check(self) -> bool:
+        logger.info(f"🤖 Initializing Ollama client - URL: {self.base_url}, Model: {self.model}")
+    
+    async def __aenter__(self):
+        """Async context manager entry"""
+        await self.connect()
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit"""
+        await self.close()
+    
+    async def connect(self):
+        """Establish connection to Ollama service"""
+        if self.session is None or self.session.closed:
+            connector = aiohttp.TCPConnector(
+                limit=self._connection_pool_limit,
+                limit_per_host=self._connection_pool_size,
+                keepalive_timeout=30,
+                enable_cleanup_closed=True
+            )
+            
+            self.session = aiohttp.ClientSession(
+                connector=connector,
+                timeout=self.timeout,
+                headers={
+                    'Content-Type': 'application/json',
+                    'User-Agent': f'{settings.app_name}/{settings.app_version}'
+                }
+            )
+            
+            logger.debug("📡 Ollama client session created")
+    
+    async def close(self):
+        """Close connection to Ollama service"""
+        if self.session and not self.session.closed:
+            await self.session.close()
+            logger.debug("📡 Ollama client session closed")
+    
+    async def health_check(self) -> bool:
+        """Check if Ollama service is available"""
         try:
-            response = self.session.get(f"{self.host}/api/tags", timeout=5)
-            return response.status_code == 200
+            await self.connect()
+            async with self.session.get(f"{self.base_url}/api/version") as response:
+                if response.status == 200:
+                    version_info = await response.json()
+                    logger.info(f"✅ Ollama service is healthy - Version: {version_info.get('version', 'unknown')}")
+                    return True
+                else:
+                    logger.warning(f"⚠️ Ollama health check failed - Status: {response.status}")
+                    return False
         except Exception as e:
-            logger.error(f"Ollama health check failed: {e}")
+            logger.error(f"❌ Ollama health check failed: {e}")
             return False
     
-    def list_models(self) -> Dict[str, Any]:
+    async def list_models(self) -> List[ModelInfo]:
+        """List available models"""
         try:
-            response = self.session.get(f"{self.host}/api/tags")
-            response.raise_for_status()
-            return response.json()
+            await self.connect()
+            async with self.session.get(f"{self.base_url}/api/tags") as response:
+                if response.status == 200:
+                    data = await response.json()
+                    models = []
+                    for model_data in data.get('models', []):
+                        models.append(ModelInfo(
+                            name=model_data['name'],
+                            size=model_data.get('size', 0),
+                            digest=model_data.get('digest', ''),
+                            modified_at=datetime.fromisoformat(model_data.get('modified_at', datetime.now().isoformat()).replace('Z', '+00:00')),
+                            details=model_data.get('details', {})
+                        ))
+                    logger.debug(f"📋 Found {len(models)} available models")
+                    return models
+                else:
+                    logger.error(f"Failed to list models - Status: {response.status}")
+                    return []
         except Exception as e:
-            logger.error(f"Failed to list models: {e}")
-            return {"models": []}
+            logger.error(f"Error listing models: {e}")
+            return []
     
-    def generate_response(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+    async def pull_model(self, model_name: str) -> bool:
+        """Pull a model if not available locally"""
         try:
-            payload = {
-                "model": self.model,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.3,
-                    "top_p": 0.9,
-                    "num_predict": 2048
-                }
-            }
+            await self.connect()
             
-            if system_prompt:
-                payload["system"] = system_prompt
+            payload = {"name": model_name}
             
-            response = self.session.post(
-                f"{self.host}/api/generate",
-                json=payload,
-                timeout=settings.max_processing_time
-            )
-            response.raise_for_status()
-            
-            result = response.json()
-            return result.get("response", "")
-            
-        except requests.exceptions.Timeout:
-            logger.error("Ollama request timed out")
-            raise Exception("AI processing timed out. Please try again.")
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Ollama request failed: {e}")
-            raise Exception("AI service unavailable. Please check Ollama connection.")
+            async with self.session.post(
+                f"{self.base_url}/api/pull",
+                json=payload
+            ) as response:
+                if response.status == 200:
+                    logger.info(f"📥 Starting to pull model: {model_name}")
+                    
+                    async for line in response.content:
+                        if line:
+                            try:
+                                progress_data = json.loads(line.decode())
+                                if progress_data.get('status'):
+                                    logger.debug(f"Pull progress: {progress_data['status']}")
+                            except json.JSONDecodeError:
+                                continue
+                    
+                    logger.info(f"✅ Model {model_name} pulled successfully")
+                    return True
+                else:
+                    logger.error(f"Failed to pull model {model_name} - Status: {response.status}")
+                    return False
         except Exception as e:
-            logger.error(f"Unexpected error in generate_response: {e}")
-            raise Exception("Failed to process with AI. Please try again.")
+            logger.error(f"Error pulling model {model_name}: {e}")
+            return False
     
-    def chat_completion(self, messages: list) -> str:
-        try:
-            payload = {
-                "model": self.model,
-                "messages": messages,
-                "stream": False,
-                "options": {
-                    "temperature": 0.3,
-                    "top_p": 0.9,
-                    "num_predict": 2048
-                }
-            }
+    async def generate(
+        self,
+        prompt: str,
+        model: Optional[str] = None,
+        system: Optional[str] = None,
+        template: Optional[str] = None,
+        context: Optional[List[int]] = None,
+        stream: bool = False,
+        raw: bool = False,
+        format: Optional[str] = None,
+        options: Optional[Dict] = None
+    ) -> Union[GenerationResponse, AsyncIterator[GenerationResponse]]:
+        """
+        Generate text using Ollama model
+        
+        Args:
+            prompt: The prompt to send to the model
+            model: Model name to use (defaults to configured model)
+            system: System message to set context
+            template: Custom template to use
+            context: Previous conversation context
+            stream: Whether to stream the response
+            raw: Whether to pass prompt without formatting
+            format: Response format (json, etc.)
+            options: Additional model options
             
-            response = self.session.post(
-                f"{self.host}/api/chat",
-                json=payload,
-                timeout=settings.max_processing_time
-            )
-            response.raise_for_status()
-            
-            result = response.json()
-            return result.get("message", {}).get("content", "")
-            
-        except requests.exceptions.Timeout:
-            logger.error("Ollama chat request timed out")
-            raise Exception("AI processing timed out. Please try again.")
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Ollama chat request failed: {e}")
-            raise Exception("AI service unavailable. Please check Ollama connection.")
-        except Exception as e:
-            logger.error(f"Unexpected error in chat_completion: {e}")
-            raise Exception("Failed to process with AI. Please try again.")
-    
-    def extract_meeting_data(self, text: str) -> Dict[str, Any]:
-        system_prompt = """You are an expert meeting minutes assistant specializing in structured data extraction. Your task is to analyze meeting transcripts and extract information with maximum accuracy and completeness.
-
-CRITICAL INSTRUCTIONS:
-1. Return ONLY valid JSON format - no additional text, explanations, or markdown
-2. Extract information precisely from the text provided
-3. Use context clues and inference for reasonable completions
-4. Maintain professional language and formatting
-5. Prioritize actionable items and clear decisions
-
-REQUIRED JSON STRUCTURE:
-{
-    "meeting_title": "string - Infer from context if not explicitly stated",
-    "date": "string - Format: YYYY-MM-DD if found, otherwise empty",
-    "time": "string - Format: HH:MM if found, otherwise empty", 
-    "location": "string - Physical or virtual location if mentioned",
-    "attendees": ["string array - Names, roles, or departments mentioned"],
-    "key_topics": ["string array - Main discussion points, max 8 items"],
-    "decisions": ["string array - Concrete decisions made, resolutions passed"],
-    "action_items": [
-        {
-            "task": "string - Clear, actionable task description",
-            "assignee": "string - Person/team responsible",
-            "deadline": "string - Deadline if mentioned, otherwise empty",
-            "priority": "string - high/medium/low if indicated, otherwise medium"
+        Returns:
+            GenerationResponse or AsyncIterator[GenerationResponse] if streaming
+        """
+        model_name = model or self.model
+        
+        # Ensure model is available
+        if not await self._ensure_model_available(model_name):
+            raise RuntimeError(f"Model {model_name} is not available")
+        
+        # Prepare payload
+        payload = {
+            "model": model_name,
+            "prompt": prompt,
+            "stream": stream
         }
-    ],
-    "follow_up_items": ["string array - Items requiring future attention"],
-    "next_meeting": "string - Next meeting details if mentioned",
-    "meeting_type": "string - Type of meeting (e.g., status, planning, review)",
-    "duration": "string - Meeting duration if mentioned",
-    "summary": "string - Brief 1-2 sentence meeting summary"
-}
-
-EXTRACTION GUIDELINES:
-- For meeting_title: If not stated, infer from main topics (e.g., "Project Status Meeting", "Budget Review")
-- For attendees: Include names, titles, or departments mentioned in discussion
-- For key_topics: Focus on substantial discussion points, not minor comments
-- For decisions: Only include definitive resolutions, not ongoing discussions
-- For action_items: Must be specific, assignable tasks with clear outcomes
-- For meeting_type: Classify based on content (status, planning, decision, review, etc.)
-
-QUALITY REQUIREMENTS:
-- Minimum 90% accuracy in field extraction
-- Professional, concise language
-- Logical categorization of information
-- Complete JSON structure with all fields present"""
-
-        user_prompt = f"Please extract meeting information from this text:\n\n{text}"
+        
+        if system:
+            payload["system"] = system
+        if template:
+            payload["template"] = template
+        if context:
+            payload["context"] = context
+        if raw:
+            payload["raw"] = raw
+        if format:
+            payload["format"] = format
+        if options:
+            payload["options"] = options
+        
+        logger.debug(f"🚀 Generating with model {model_name} - Prompt length: {len(prompt)}")
         
         try:
-            response = self.generate_response(user_prompt, system_prompt)
-            
-            # Try to parse as JSON
-            import json
+            if stream:
+                return self._generate_stream(payload)
+            else:
+                return await self._generate_single(payload)
+        except Exception as e:
+            logger.error(f"Generation failed: {e}")
+            raise
+    
+    async def _generate_single(self, payload: Dict) -> GenerationResponse:
+        """Generate single response (non-streaming)"""
+        await self.connect()
+        
+        for attempt in range(self.max_retries):
             try:
-                data = json.loads(response)
-                # Validate and normalize all fields
-                validated_data = self._validate_and_normalize_data(data)
-                return validated_data
-            except json.JSONDecodeError:
-                logger.warning("Failed to parse JSON response, using fallback")
-                return self._fallback_extraction(text)
+                start_time = time.time()
                 
-        except Exception as e:
-            logger.error(f"Failed to extract meeting data: {e}")
-            return self._fallback_extraction(text)
+                async with self.session.post(
+                    f"{self.base_url}/api/generate",
+                    json=payload
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        
+                        duration = time.time() - start_time
+                        logger.info(f"✅ Generation completed in {duration:.2f}s")
+                        
+                        return GenerationResponse(
+                            content=data.get('response', ''),
+                            model=data.get('model', ''),
+                            created_at=datetime.utcnow(),
+                            done=data.get('done', True),
+                            total_duration=data.get('total_duration', 0),
+                            load_duration=data.get('load_duration', 0),
+                            prompt_eval_count=data.get('prompt_eval_count', 0),
+                            prompt_eval_duration=data.get('prompt_eval_duration', 0),
+                            eval_count=data.get('eval_count', 0),
+                            eval_duration=data.get('eval_duration', 0),
+                            context=data.get('context', []),
+                            metadata={
+                                'attempt': attempt + 1,
+                                'response_time': duration,
+                                'status_code': response.status
+                            }
+                        )
+                    else:
+                        error_text = await response.text()
+                        raise aiohttp.ClientResponseError(
+                            request_info=response.request_info,
+                            history=response.history,
+                            status=response.status,
+                            message=f"HTTP {response.status}: {error_text}"
+                        )
+            
+            except Exception as e:
+                logger.warning(f"Generation attempt {attempt + 1} failed: {e}")
+                if attempt == self.max_retries - 1:
+                    raise
+                await asyncio.sleep(2 ** attempt)  # Exponential backoff
     
-    def _validate_and_normalize_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate and normalize extracted meeting data according to SESE principles"""
-        default_structure = {
-            "meeting_title": "General Meeting",
-            "date": "",
-            "time": "",
-            "location": "",
-            "attendees": [],
-            "key_topics": [],
-            "decisions": [],
-            "action_items": [],
-            "follow_up_items": [],
-            "next_meeting": "",
-            "meeting_type": "general",
-            "duration": "",
-            "summary": ""
+    async def _generate_stream(self, payload: Dict) -> AsyncIterator[GenerationResponse]:
+        """Generate streaming response"""
+        await self.connect()
+        
+        async with self.session.post(
+            f"{self.base_url}/api/generate",
+            json=payload
+        ) as response:
+            if response.status != 200:
+                error_text = await response.text()
+                raise aiohttp.ClientResponseError(
+                    request_info=response.request_info,
+                    history=response.history,
+                    status=response.status,
+                    message=f"HTTP {response.status}: {error_text}"
+                )
+            
+            async for line in response.content:
+                if line:
+                    try:
+                        data = json.loads(line.decode())
+                        yield GenerationResponse(
+                            content=data.get('response', ''),
+                            model=data.get('model', ''),
+                            created_at=datetime.utcnow(),
+                            done=data.get('done', False),
+                            total_duration=data.get('total_duration', 0),
+                            load_duration=data.get('load_duration', 0),
+                            prompt_eval_count=data.get('prompt_eval_count', 0),
+                            prompt_eval_duration=data.get('prompt_eval_duration', 0),
+                            eval_count=data.get('eval_count', 0),
+                            eval_duration=data.get('eval_duration', 0),
+                            context=data.get('context', []),
+                            metadata={'streaming': True}
+                        )
+                    except json.JSONDecodeError:
+                        continue
+    
+    async def _ensure_model_available(self, model_name: str) -> bool:
+        """Ensure model is available locally"""
+        try:
+            models = await self.list_models()
+            available_models = [model.name for model in models]
+            
+            if model_name in available_models:
+                return True
+            
+            # Try to pull the model if not available
+            logger.info(f"📥 Model {model_name} not found locally, attempting to pull...")
+            return await self.pull_model(model_name)
+            
+        except Exception as e:
+            logger.error(f"Error checking model availability: {e}")
+            return False
+    
+    async def chat(
+        self,
+        messages: List[Dict[str, str]],
+        model: Optional[str] = None,
+        stream: bool = False,
+        options: Optional[Dict] = None
+    ) -> Union[GenerationResponse, AsyncIterator[GenerationResponse]]:
+        """
+        Chat with model using conversation format
+        
+        Args:
+            messages: List of messages in chat format
+            model: Model name to use
+            stream: Whether to stream response
+            options: Additional options
+            
+        Returns:
+            GenerationResponse or AsyncIterator[GenerationResponse]
+        """
+        model_name = model or self.model
+        
+        payload = {
+            "model": model_name,
+            "messages": messages,
+            "stream": stream
         }
         
-        # Ensure all required fields exist
-        for key, default_value in default_structure.items():
-            if key not in data:
-                data[key] = default_value
+        if options:
+            payload["options"] = options
         
-        # Validate and clean string fields
-        string_fields = ["meeting_title", "date", "time", "location", "next_meeting", "meeting_type", "duration", "summary"]
-        for field in string_fields:
-            if not isinstance(data[field], str):
-                data[field] = str(data[field]) if data[field] else ""
-            data[field] = data[field].strip()
+        logger.debug(f"💬 Starting chat with {len(messages)} messages")
         
-        # Validate and clean array fields
-        array_fields = ["attendees", "key_topics", "decisions", "follow_up_items"]
-        for field in array_fields:
-            if not isinstance(data[field], list):
-                data[field] = []
-            # Clean and validate each item in arrays
-            data[field] = [str(item).strip() for item in data[field] if item and str(item).strip()]
+        await self.connect()
         
-        # Special validation for action_items
-        if not isinstance(data["action_items"], list):
-            data["action_items"] = []
-        
-        validated_actions = []
-        for item in data["action_items"]:
-            if isinstance(item, dict):
-                action_item = {
-                    "task": str(item.get("task", "")).strip(),
-                    "assignee": str(item.get("assignee", "")).strip(),
-                    "deadline": str(item.get("deadline", "")).strip(),
-                    "priority": str(item.get("priority", "medium")).lower().strip()
-                }
-                if action_item["task"]:  # Only add if task is not empty
-                    if action_item["priority"] not in ["high", "medium", "low"]:
-                        action_item["priority"] = "medium"
-                    validated_actions.append(action_item)
-        
-        data["action_items"] = validated_actions
-        
-        # Quality check - ensure meeting has some meaningful content
-        total_content_items = len(data["key_topics"]) + len(data["decisions"]) + len(data["action_items"])
-        if total_content_items == 0:
-            # Generate basic content from text if AI extraction failed
-            logger.warning("Low content extraction detected, enhancing data")
-            data = self._enhance_minimal_data(data)
-        
-        return data
+        try:
+            if stream:
+                return self._chat_stream(payload)
+            else:
+                return await self._chat_single(payload)
+        except Exception as e:
+            logger.error(f"Chat failed: {e}")
+            raise
     
-    def _enhance_minimal_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Enhance data when AI extraction yields minimal results"""
-        if not data["meeting_title"] or data["meeting_title"] == "General Meeting":
-            data["meeting_title"] = "Meeting Minutes"
-        
-        if not data["summary"]:
-            data["summary"] = "Meeting discussion and action items review."
-        
-        if not data["meeting_type"]:
-            data["meeting_type"] = "general"
-        
-        return data
-
-    def _fallback_extraction(self, text: str) -> Dict[str, Any]:
-        """Fallback method for basic text processing when AI fails - implements ICE principle for reliability"""
-        lines = [line.strip() for line in text.split('\n') if line.strip()]
-        
-        # Basic extraction using text patterns
-        title = "General Meeting"
-        topics = []
-        
-        # Try to identify meeting topics from content
-        for line in lines[:8]:  # Check first 8 lines for topics
-            if len(line) > 10 and not any(char.isdigit() for char in line[:5]):
-                topics.append(line[:100])  # Limit topic length
-        
+    async def _chat_single(self, payload: Dict) -> GenerationResponse:
+        """Single chat response"""
+        async with self.session.post(
+            f"{self.base_url}/api/chat",
+            json=payload
+        ) as response:
+            if response.status == 200:
+                data = await response.json()
+                message = data.get('message', {})
+                
+                return GenerationResponse(
+                    content=message.get('content', ''),
+                    model=data.get('model', ''),
+                    created_at=datetime.utcnow(),
+                    done=data.get('done', True),
+                    total_duration=data.get('total_duration', 0),
+                    load_duration=data.get('load_duration', 0),
+                    prompt_eval_count=data.get('prompt_eval_count', 0),
+                    prompt_eval_duration=data.get('prompt_eval_duration', 0),
+                    eval_count=data.get('eval_count', 0),
+                    eval_duration=data.get('eval_duration', 0),
+                    context=[],
+                    metadata={'chat_mode': True}
+                )
+            else:
+                error_text = await response.text()
+                raise aiohttp.ClientResponseError(
+                    request_info=response.request_info,
+                    history=response.history,
+                    status=response.status,
+                    message=f"HTTP {response.status}: {error_text}"
+                )
+    
+    async def _chat_stream(self, payload: Dict) -> AsyncIterator[GenerationResponse]:
+        """Streaming chat response"""
+        async with self.session.post(
+            f"{self.base_url}/api/chat",
+            json=payload
+        ) as response:
+            if response.status != 200:
+                error_text = await response.text()
+                raise aiohttp.ClientResponseError(
+                    request_info=response.request_info,
+                    history=response.history,
+                    status=response.status,
+                    message=f"HTTP {response.status}: {error_text}"
+                )
+            
+            async for line in response.content:
+                if line:
+                    try:
+                        data = json.loads(line.decode())
+                        message = data.get('message', {})
+                        
+                        yield GenerationResponse(
+                            content=message.get('content', ''),
+                            model=data.get('model', ''),
+                            created_at=datetime.utcnow(),
+                            done=data.get('done', False),
+                            total_duration=data.get('total_duration', 0),
+                            load_duration=data.get('load_duration', 0),
+                            prompt_eval_count=data.get('prompt_eval_count', 0),
+                            prompt_eval_duration=data.get('prompt_eval_duration', 0),
+                            eval_count=data.get('eval_count', 0),
+                            eval_duration=data.get('eval_duration', 0),
+                            context=[],
+                            metadata={'streaming': True, 'chat_mode': True}
+                        )
+                    except json.JSONDecodeError:
+                        continue
+    
+    def get_performance_stats(self) -> Dict[str, any]:
+        """Get performance statistics"""
+        # This would be implemented with actual performance tracking
         return {
-            "meeting_title": title,
-            "date": "",
-            "time": "",
-            "location": "",
-            "attendees": [],
-            "key_topics": topics[:5],  # Limit to top 5 topics
-            "decisions": [],
-            "action_items": [],
-            "follow_up_items": [],
-            "next_meeting": "",
-            "meeting_type": "general",
-            "duration": "",
-            "summary": f"Meeting with {len(topics)} discussion topics identified."
+            'model': self.model,
+            'base_url': self.base_url,
+            'max_retries': self.max_retries,
+            'timeout': self.timeout.total if self.timeout else None,
+            'session_active': self.session is not None and not self.session.closed
         }

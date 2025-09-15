@@ -210,6 +210,9 @@ __marimo__/
 .claude/
 
 # Rapid-Minutes-Export Specific
+# Project configuration files
+CLAUDE.md
+
 # Data directories (runtime generated)
 data/output/
 data/temp/

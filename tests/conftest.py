@@ -16,21 +16,21 @@ from unittest.mock import MagicMock
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from app.config import settings
-from app.ai.text_preprocessor import TextPreprocessor
-from app.ai.ollama_client import OllamaClient
-from app.ai.extractor import StructuredDataExtractor, MeetingMinutes, MeetingBasicInfo, Attendee
-from app.core.file_processor import FileProcessor
-from app.core.meeting_processor import MeetingProcessor
-from app.core.template_controller import TemplateController
-from app.core.output_manager import OutputController
-from app.document.word_engine import WordEngine
-from app.document.data_injector import DataInjector
-from app.document.pdf_generator import PDFGenerator
-from app.storage.file_manager import FileManager
-from app.storage.temp_storage import TempStorage
-from app.storage.template_storage import TemplateStorage
-from app.storage.output_manager import OutputManager
+from src.rapid_minutes.config.settings import get_settings
+from src.rapid_minutes.ai.text_preprocessor import TextPreprocessor
+from src.rapid_minutes.ai.ollama_client import OllamaClient
+from src.rapid_minutes.ai.extractor import StructuredDataExtractor, MeetingMinutes, MeetingBasicInfo, Attendee
+from src.rapid_minutes.core.file_processor import FileProcessor
+from src.rapid_minutes.core.meeting_processor import MeetingProcessor
+from src.rapid_minutes.core.template_controller import TemplateController
+from src.rapid_minutes.core.output_manager import OutputController
+from src.rapid_minutes.document.word_engine import WordEngine
+from src.rapid_minutes.document.data_injector import DataInjector
+from src.rapid_minutes.document.pdf_generator import PDFGenerator
+from src.rapid_minutes.storage.file_manager import FileManager
+from src.rapid_minutes.storage.temp_storage import TempStorage
+from src.rapid_minutes.storage.template_storage import TemplateStorage
+from src.rapid_minutes.storage.output_manager import OutputManager
 
 
 @pytest.fixture(scope="session")
@@ -52,6 +52,7 @@ def test_temp_dir():
 @pytest.fixture
 def mock_settings(test_temp_dir):
     """Mock settings for testing"""
+    settings = get_settings()
     original_settings = {}
     test_settings = {
         'data_dir': os.path.join(test_temp_dir, 'data'),
@@ -63,20 +64,20 @@ def mock_settings(test_temp_dir):
         'allowed_file_types': ['text/plain', 'application/pdf'],
         'max_batch_upload_files': 5
     }
-    
+
     # Store original settings
     for key, value in test_settings.items():
         if hasattr(settings, key):
             original_settings[key] = getattr(settings, key)
         setattr(settings, key, value)
-    
+
     # Create test directories
     for key, path in test_settings.items():
         if key.endswith('_dir'):
             os.makedirs(path, exist_ok=True)
-    
+
     yield settings
-    
+
     # Restore original settings
     for key, value in original_settings.items():
         setattr(settings, key, value)
