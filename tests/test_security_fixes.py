@@ -4,8 +4,7 @@ Tests for security vulnerability fixes implemented in Phase 2
 """
 
 import pytest
-import asyncio
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 from fastapi import HTTPException
 
 
@@ -132,7 +131,6 @@ class TestSubprocessSecurityFixes:
 
     def test_subprocess_commands_use_list_format(self):
         """Test that subprocess commands use list format instead of strings"""
-        import subprocess
         from unittest.mock import patch
 
         # Mock subprocess.run to capture calls
@@ -140,8 +138,6 @@ class TestSubprocessSecurityFixes:
             mock_run.return_value = MagicMock(returncode=0)
 
             # Test LibreOffice PDF conversion
-            from app.document.pdf_generator import PDFGenerator
-            generator = PDFGenerator()
 
             # This would trigger subprocess call in real scenario
             # For testing, we check the pattern used

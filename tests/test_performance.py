@@ -7,13 +7,10 @@ import pytest
 import asyncio
 import time
 import psutil
-import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from unittest.mock import Mock, patch
 import statistics
 
 from app.ai.text_preprocessor import TextPreprocessor
-from app.ai.ollama_client import OllamaClient
 
 
 class TestPerformanceBenchmarks:
@@ -122,16 +119,12 @@ class TestScalabilityMetrics:
         num_concurrent_users = 10
         
         with ThreadPoolExecutor(max_workers=num_concurrent_users) as executor:
-            start_time = time.time()
-            
             futures = [
                 executor.submit(simulate_user_request, i) 
                 for i in range(num_concurrent_users)
             ]
             
             results = [future.result() for future in as_completed(futures)]
-            
-            total_time = time.time() - start_time
         
         # All requests should complete successfully
         assert len(results) == num_concurrent_users
