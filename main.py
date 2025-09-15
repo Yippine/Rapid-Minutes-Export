@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 from rapid_minutes.config.settings import get_settings
 from rapid_minutes.web.routes import router
 from rapid_minutes.storage.file_manager import FileManager
-from app.diagnostics import SystemDiagnostics
+from src.rapid_minutes.diagnostics.system_diagnostics import SystemDiagnostics
 
 settings = get_settings()
 

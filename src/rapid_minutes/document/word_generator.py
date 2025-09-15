@@ -3,12 +3,10 @@ import tempfile
 import os
 import platform
 import subprocess
-from pathlib import Path
 from docx import Document
 from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.oxml.shared import OxmlElement, qn
 from docx.oxml.ns import nsdecls
 try:
     from docx.oxml.parser import parse_xml
@@ -17,7 +15,7 @@ except ImportError:
     from lxml import etree
     def parse_xml(xml_str):
         return etree.fromstring(xml_str)
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Tuple
 from io import BytesIO
 from datetime import datetime
 
