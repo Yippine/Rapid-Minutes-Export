@@ -14,8 +14,8 @@ class Settings(BaseSettings):
     
     # Ollama Configuration
     ollama_host: str = Field(default="http://localhost:11434", env="OLLAMA_HOST")
-    ollama_model: str = Field(default="qwen3:1.7b", env="OLLAMA_MODEL")  # Use smaller, faster model
-    ollama_timeout: int = Field(default=300, env="OLLAMA_TIMEOUT")  # 5 minutes for complex text
+    ollama_model: str = Field(default="Yu-Feng/Llama-3.1-TAIDE-LX-8B-Chat:Q4_K_M", env="OLLAMA_MODEL")  # TAIDE model for Traditional Chinese
+    ollama_timeout: int = Field(default=300, env="OLLAMA_TIMEOUT")  # 5 minutes for 8B model
     ollama_max_retries: int = Field(default=3, env="OLLAMA_MAX_RETRIES")
     
     # File Paths Configuration

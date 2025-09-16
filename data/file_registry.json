@@ -174,5 +174,133 @@
       "progress": 100,
       "last_updated": "2025-09-15T22:40:45.035949"
     }
+  },
+  "20250916_013642_828_941be03c": {
+    "file_id": "20250916_013642_828_941be03c",
+    "original_name": "test-meeting-template.txt",
+    "stored_path": "data/uploads/2025/09/16/20250916_013642_828_941be03c.txt",
+    "file_size": 497,
+    "mime_type": "text/plain",
+    "created_at": "2025-09-16T01:36:42.837248",
+    "last_accessed": "2025-09-16T01:36:42.837252",
+    "checksum": "d22df799de39126ed29884b9e7cf1fcbfb09dd588c4ecd0ac5f345dfa915564a",
+    "tags": [],
+    "custom_metadata": {
+      "status": "completed",
+      "progress": 100,
+      "last_updated": "2025-09-16T01:39:49.025361"
+    }
+  },
+  "20250916_014839_300_bbc4f90b": {
+    "file_id": "20250916_014839_300_bbc4f90b",
+    "original_name": "test-final.txt",
+    "stored_path": "data/uploads/2025/09/16/20250916_014839_300_bbc4f90b.txt",
+    "file_size": 700,
+    "mime_type": "text/plain",
+    "created_at": "2025-09-16T01:48:39.309672",
+    "last_accessed": "2025-09-16T01:48:39.309675",
+    "checksum": "08443295f0e1feaf20ddeff40b6b65b6893cba8eea439945523729d8d425e797",
+    "tags": [],
+    "custom_metadata": {
+      "status": "completed",
+      "progress": 100,
+      "last_updated": "2025-09-16T01:51:07.377283"
+    }
+  },
+  "20250916_020357_034_d495354f": {
+    "file_id": "20250916_020357_034_d495354f",
+    "original_name": "\u5167\u79d1\u5354\u6703\u6703\u54e1\u7c21\u5831-v2t \u539f\u59cb\u6a94.txt",
+    "stored_path": "data/uploads/2025/09/16/20250916_020357_034_d495354f.txt",
+    "file_size": 38722,
+    "mime_type": "text/plain",
+    "created_at": "2025-09-16T02:03:57.044368",
+    "last_accessed": "2025-09-16T02:03:57.044371",
+    "checksum": "abf021fbda882638b16630e1a4c4e728d728dcc71aa8964344213ea5c0ccdcc1",
+    "tags": [],
+    "custom_metadata": {
+      "status": "completed",
+      "progress": 100,
+      "last_updated": "2025-09-16T02:09:04.012217"
+    }
+  },
+  "20250916_020601_720_bbc4f90b": {
+    "file_id": "20250916_020601_720_bbc4f90b",
+    "original_name": "test-final.txt",
+    "stored_path": "data/uploads/2025/09/16/20250916_020601_720_bbc4f90b.txt",
+    "file_size": 700,
+    "mime_type": "text/plain",
+    "created_at": "2025-09-16T02:06:01.740468",
+    "last_accessed": "2025-09-16T02:06:01.740473",
+    "checksum": "08443295f0e1feaf20ddeff40b6b65b6893cba8eea439945523729d8d425e797",
+    "tags": [],
+    "custom_metadata": {
+      "status": "completed",
+      "progress": 100,
+      "last_updated": "2025-09-16T02:09:18.995654"
+    }
+  },
+  "20250916_022301_062_bbc4f90b": {
+    "file_id": "20250916_022301_062_bbc4f90b",
+    "original_name": "test-final.txt",
+    "stored_path": "data/uploads/2025/09/16/20250916_022301_062_bbc4f90b.txt",
+    "file_size": 700,
+    "mime_type": "text/plain",
+    "created_at": "2025-09-16T02:23:01.071498",
+    "last_accessed": "2025-09-16T02:23:01.071501",
+    "checksum": "08443295f0e1feaf20ddeff40b6b65b6893cba8eea439945523729d8d425e797",
+    "tags": [],
+    "custom_metadata": {
+      "status": "completed",
+      "progress": 100,
+      "last_updated": "2025-09-16T02:25:10.991158"
+    }
+  },
+  "20250916_023014_918_bbc4f90b": {
+    "file_id": "20250916_023014_918_bbc4f90b",
+    "original_name": "test-final.txt",
+    "stored_path": "data/uploads/2025/09/16/20250916_023014_918_bbc4f90b.txt",
+    "file_size": 700,
+    "mime_type": "text/plain",
+    "created_at": "2025-09-16T02:30:14.928099",
+    "last_accessed": "2025-09-16T02:30:14.928102",
+    "checksum": "08443295f0e1feaf20ddeff40b6b65b6893cba8eea439945523729d8d425e797",
+    "tags": [],
+    "custom_metadata": {
+      "status": "completed",
+      "progress": 100,
+      "last_updated": "2025-09-16T02:33:21.554101"
+    }
+  },
+  "20250916_023503_752_d495354f": {
+    "file_id": "20250916_023503_752_d495354f",
+    "original_name": "\u5167\u79d1\u5354\u6703\u6703\u54e1\u7c21\u5831-v2t \u539f\u59cb\u6a94.txt",
+    "stored_path": "data/uploads/2025/09/16/20250916_023503_752_d495354f.txt",
+    "file_size": 38722,
+    "mime_type": "text/plain",
+    "created_at": "2025-09-16T02:35:03.762849",
+    "last_accessed": "2025-09-16T02:35:03.762851",
+    "checksum": "abf021fbda882638b16630e1a4c4e728d728dcc71aa8964344213ea5c0ccdcc1",
+    "tags": [],
+    "custom_metadata": {
+      "status": "completed",
+      "progress": 100,
+      "last_updated": "2025-09-16T02:38:27.054295"
+    }
+  },
+  "20250916_031832_606_d495354f": {
+    "file_id": "20250916_031832_606_d495354f",
+    "original_name": "\u5167\u79d1\u5354\u6703\u6703\u54e1\u7c21\u5831-v2t \u539f\u59cb\u6a94.txt",
+    "stored_path": "data/uploads/2025/09/16/20250916_031832_606_d495354f.txt",
+    "file_size": 38722,
+    "mime_type": "text/plain",
+    "created_at": "2025-09-16T03:18:32.615818",
+    "last_accessed": "2025-09-16T03:18:32.615821",
+    "checksum": "abf021fbda882638b16630e1a4c4e728d728dcc71aa8964344213ea5c0ccdcc1",
+    "tags": [],
+    "custom_metadata": {
+      "status": "completed",
+      "progress": 100,
+      "last_updated": "2025-09-16T03:21:58.572112"
+    }
   }
 }

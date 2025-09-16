@@ -222,105 +222,105 @@ class StructuredDataExtractor:
         """Setup extraction prompts for different information types"""
         return {
             'basic_info': '''
-You are an expert meeting minutes analyzer. Extract basic meeting information from the following text.
-Return ONLY a JSON object with these exact fields (use null for missing information):
+你是專業的會議記錄分析專家。請從以下文字中擷取基本會議資訊。
+請只回傳 JSON 格式，包含以下欄位（如果資訊不存在請填入 null）：
 {
-    "title": "meeting title or subject",
-    "date": "meeting date in YYYY-MM-DD format", 
-    "time": "meeting time",
-    "duration": "meeting duration",
-    "location": "meeting location or platform",
-    "meeting_type": "type of meeting",
-    "organizer": "meeting organizer name"
+    "title": "會議標題或主題",
+    "date": "會議日期，格式為 YYYY-MM-DD",
+    "time": "會議時間",
+    "duration": "會議時長",
+    "location": "會議地點或平台",
+    "meeting_type": "會議類型",
+    "organizer": "會議主辦人姓名"
 }
 
-Text to analyze:
+請分析以下文字：
 {text}
 
-JSON Response:''',
-            
+請用繁體中文回覆 JSON 格式：''',
+
             'attendees': '''
-You are an expert meeting minutes analyzer. Extract attendee information from the following text.
-Return ONLY a JSON array of attendee objects with these exact fields:
+你是專業的會議記錄分析專家。請從以下文字中擷取與會人員資訊。
+請只回傳 JSON 陣列格式，包含以下欄位：
 [
     {
-        "name": "full name",
-        "role": "job title or role",
-        "organization": "company or department", 
-        "email": "email address if mentioned",
+        "name": "姓名",
+        "role": "職稱或角色",
+        "organization": "公司或部門",
+        "email": "電子郵件（如有提及）",
         "present": true
     }
 ]
 
-Text to analyze:
+請分析以下文字：
 {text}
 
-JSON Response:''',
-            
+請用繁體中文回覆 JSON 格式：''',
+
             'agenda': '''
-You are an expert meeting minutes analyzer. Extract discussion topics and agenda items from the following text.
-Return ONLY a JSON array of topic objects with these exact fields:
+你是專業的會議記錄分析專家。請從以下文字中擷取討論主題和議程項目。
+請只回傳 JSON 陣列格式，包含以下欄位：
 [
     {
-        "title": "topic or agenda item title",
-        "description": "brief description of discussion",
-        "presenter": "who presented or led the discussion",
-        "duration": "time spent on topic if mentioned",
-        "key_points": ["key point 1", "key point 2", "key point 3"]
+        "title": "主題或議程項目標題",
+        "description": "討論內容簡述",
+        "presenter": "主講人或討論主持人",
+        "duration": "討論時間（如有提及）",
+        "key_points": ["重點一", "重點二", "重點三"]
     }
 ]
 
-Text to analyze:
+請分析以下文字：
 {text}
 
-JSON Response:''',
-            
+請用繁體中文回覆 JSON 格式：''',
+
             'action_items': '''
-You are an expert meeting minutes analyzer. Extract action items and tasks from the following text.
-Return ONLY a JSON array of action item objects with these exact fields:
+你是專業的會議記錄分析專家。請從以下文字中擷取行動項目和任務。
+請只回傳 JSON 陣列格式，包含以下欄位：
 [
     {
-        "task": "description of task or action",
-        "assignee": "person responsible for the task",
-        "due_date": "deadline in YYYY-MM-DD format if mentioned",
-        "priority": "high/medium/low priority if mentioned",
-        "status": "current status if mentioned",
-        "notes": "additional notes about the task"
+        "task": "任務或行動項目描述",
+        "assignee": "負責人",
+        "due_date": "截止日期，格式為 YYYY-MM-DD（如有提及）",
+        "priority": "優先順序：高/中/低（如有提及）",
+        "status": "目前狀態（如有提及）",
+        "notes": "相關備註"
     }
 ]
 
-Text to analyze:
+請分析以下文字：
 {text}
 
-JSON Response:''',
-            
+請用繁體中文回覆 JSON 格式：''',
+
             'decisions': '''
-You are an expert meeting minutes analyzer. Extract decisions made during the meeting from the following text.
-Return ONLY a JSON array of decision objects with these exact fields:
+你是專業的會議記錄分析專家。請從以下文字中擷取會議中做出的決策。
+請只回傳 JSON 陣列格式，包含以下欄位：
 [
     {
-        "decision": "the decision that was made",
-        "rationale": "reasoning behind the decision",
-        "impact": "expected impact or consequences",
-        "responsible_party": "person or team responsible for implementation",
-        "implementation_date": "when decision takes effect in YYYY-MM-DD format"
+        "decision": "做出的決策",
+        "rationale": "決策理由",
+        "impact": "預期影響或後果",
+        "responsible_party": "負責執行的人員或團隊",
+        "implementation_date": "決策生效日期，格式為 YYYY-MM-DD"
     }
 ]
 
-Text to analyze:
+請分析以下文字：
 {text}
 
-JSON Response:''',
-            
+請用繁體中文回覆 JSON 格式：''',
+
             'key_outcomes': '''
-You are an expert meeting minutes analyzer. Extract key outcomes and summary points from the following text.
-Return ONLY a JSON array of strings representing key outcomes:
-["outcome 1", "outcome 2", "outcome 3"]
+你是專業的會議記錄分析專家。請從以下文字中擷取主要成果和總結要點。
+請只回傳字串陣列的 JSON 格式：
+["成果一", "成果二", "成果三"]
 
-Text to analyze:
+請分析以下文字：
 {text}
 
-JSON Response:'''
+請用繁體中文回覆 JSON 格式：'''
         }
     
     def _setup_validation_rules(self) -> Dict[str, callable]:
