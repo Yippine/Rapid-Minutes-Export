@@ -14,8 +14,8 @@ class Settings(BaseSettings):
     
     # Ollama Configuration
     ollama_host: str = Field(default="http://localhost:11434", env="OLLAMA_HOST")
-    ollama_model: str = Field(default="llama3.2", env="OLLAMA_MODEL")
-    ollama_timeout: int = Field(default=60, env="OLLAMA_TIMEOUT")
+    ollama_model: str = Field(default="qwen3:1.7b", env="OLLAMA_MODEL")  # Use smaller, faster model
+    ollama_timeout: int = Field(default=300, env="OLLAMA_TIMEOUT")  # 5 minutes for complex text
     ollama_max_retries: int = Field(default=3, env="OLLAMA_MAX_RETRIES")
     
     # File Paths Configuration

@@ -180,6 +180,99 @@ class FileManager:
     async def get_file_metadata(self, file_id: str) -> Optional[FileMetadata]:
         """Get file metadata by ID"""
         return self._file_registry.get(file_id)
+
+    def get_file_info(self, file_id: str) -> Optional[Dict[str, Any]]:
+        """Get file information as dictionary (sync method for compatibility)"""
+        if file_id not in self._file_registry:
+            return None
+
+        metadata = self._file_registry[file_id]
+        return {
+            'file_id': metadata.file_id,
+            'original_name': metadata.original_name,
+            'file_size': metadata.file_size,
+            'mime_type': metadata.mime_type,
+            'created_at': metadata.created_at,
+            'status': metadata.custom_metadata.get('status', 'uploaded'),
+            'progress': metadata.custom_metadata.get('progress', 0),
+            'error': metadata.custom_metadata.get('error', None),
+            'last_updated': metadata.custom_metadata.get('last_updated', metadata.last_accessed.isoformat())
+        }
+
+    def update_processing_status(self, file_id: str, status: str, progress: int, error: str = None):
+        """Update processing status for a file (sync method for compatibility)"""
+        if file_id not in self._file_registry:
+            return False
+
+        metadata = self._file_registry[file_id]
+        # Add status tracking to custom metadata
+        metadata.custom_metadata.update({
+            'status': status,
+            'progress': progress,
+            'last_updated': datetime.utcnow().isoformat()
+        })
+        if error:
+            metadata.custom_metadata['error'] = error
+
+        # Save registry synchronously (not ideal but needed for compatibility)
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+            loop.create_task(self._save_registry())
+        except RuntimeError:
+            # If no loop is running, we can't save asynchronously
+            pass
+
+        return True
+
+    def read_file_content(self, file_id: str) -> Optional[str]:
+        """Read file content as string (sync method for compatibility)"""
+        if file_id not in self._file_registry:
+            return None
+
+        metadata = self._file_registry[file_id]
+        try:
+            with open(metadata.stored_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception as e:
+            logger.error(f"Error reading file {file_id}: {e}")
+            return None
+
+    def get_output_file_path(self, file_id: str, file_type: str) -> Optional[str]:
+        """Get path for output file"""
+        if file_type not in ['word', 'pdf']:
+            return None
+
+        # Look for output file in output directory
+        output_file_pattern = f"*{file_id}*.{'docx' if file_type == 'word' else 'pdf'}"
+        for file_path in self.output_dir.rglob(output_file_pattern):
+            if file_path.is_file():
+                return str(file_path)
+
+        return None
+
+    def save_output_file(self, file_id: str, content: bytes, file_type: str) -> str:
+        """Save output file (word/pdf)"""
+        if file_type == 'word':
+            extension = '.docx'
+        elif file_type == 'pdf':
+            extension = '.pdf'
+        else:
+            raise ValueError(f"Unsupported file type: {file_type}")
+
+        # Create output filename
+        output_filename = f"meeting_minutes_{file_id}{extension}"
+        output_path = self.output_dir / output_filename
+
+        # Ensure output directory exists
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Write output file
+        with open(output_path, 'wb') as f:
+            f.write(content)
+
+        logger.info(f"Output file saved: {output_path}")
+        return str(output_path)
     
     async def update_file_metadata(
         self, 

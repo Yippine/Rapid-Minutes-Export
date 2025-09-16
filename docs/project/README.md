@@ -1,9 +1,9 @@
 # 🎯 Rapid Minutes Export - AI Meeting Minutes Automation System
 
-**🏆 Excellence-Level Automated Meeting Minutes System v1.0**
+**🏆 Excellence-Level Automated Meeting Minutes System v1.1**
 **Designed with CLAUDE.md Four Principles (MECE, SESE, ICE, 82 Rule)**
 
-[![Version](https://img.shields.io/badge/version-v1.0-brightgreen.svg)](./VERSION.md)
+[![Version](https://img.shields.io/badge/version-v1.1-brightgreen.svg)](./VERSION.md)
 [![Excellence Score](https://img.shields.io/badge/excellence-92.8%2F100-brightgreen.svg)](./FINAL_EXCELLENCE_REPORT.md)
 [![User Experience](https://img.shields.io/badge/UX-iPhone%20Level%20(95%2F100)-blue.svg)](./FINAL_EXCELLENCE_REPORT.md)
 [![System Stability](https://img.shields.io/badge/stability-Enterprise%20Level%20(93%2F100)-green.svg)](./FINAL_EXCELLENCE_REPORT.md)

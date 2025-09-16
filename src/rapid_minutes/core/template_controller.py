@@ -145,7 +145,8 @@ class TemplateController:
             output_filename = self._generate_output_filename(meeting_minutes, template_type)
         
         logger.info(f"📄 Starting document generation: {job_id}")
-        
+        logger.info(f"📋 Input minutes organizer: {meeting_minutes.basic_info.organizer if meeting_minutes.basic_info else 'None'}")
+
         # Get template configuration
         template_config = await self._get_template_config(template_type)
         if not template_config:
@@ -183,19 +184,60 @@ class TemplateController:
             
             # Stage 3: Inject meeting data
             await self._update_job_progress(job, 0.7, "Injecting meeting data...")
-            final_doc = await self.data_injector.inject_data(
-                processed_doc,
-                meeting_minutes,
-                template_config
-            )
+            logger.info(f"🔍 ProcessingResult type: {type(processed_doc)}")
+            logger.info(f"🔍 ProcessingResult attributes: {dir(processed_doc)}")
+            logger.info(f"🔍 ProcessingResult success: {getattr(processed_doc, 'success', 'No success attr')}")
+
+            if processed_doc.success and processed_doc.output_path:
+                final_doc = await self.data_injector.inject_data(
+                    processed_doc.output_path,
+                    meeting_minutes,
+                    template_config
+                )
+            else:
+                return GenerationResult(
+                    job_id=job_id,
+                    status=GenerationStatus.FAILED,
+                    error_message=f"Template processing failed: {processed_doc.error_message}"
+                )
             
             # Stage 4: Save output document
             await self._update_job_progress(job, 0.9, "Saving document...")
-            output_path = await self.output_manager.save_document(
-                final_doc,
-                output_filename,
-                job_id
-            )
+            if final_doc.success and final_doc.processed_document:
+                # Save the processed document to temporary file first
+                import tempfile
+                import os
+                from rapid_minutes.storage.output_manager import OutputFileType
+
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp_file:
+                    final_doc.processed_document.save(tmp_file.name)
+                    temp_path = tmp_file.name
+
+                # Store file using OutputManager
+                output_record = await self.output_manager.store_file(
+                    temp_path,
+                    job_id,
+                    OutputFileType.DOCX,
+                    filename=output_filename
+                )
+
+                # Clean up temporary file
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
+
+                output_path = output_record.file_path if output_record else None
+                if not output_path:
+                    return GenerationResult(
+                        job_id=job_id,
+                        status=GenerationStatus.FAILED,
+                        error_message="Failed to save output document"
+                    )
+            else:
+                return GenerationResult(
+                    job_id=job_id,
+                    status=GenerationStatus.FAILED,
+                    error_message=f"Data injection failed: {final_doc.error_message}"
+                )
             
             # Complete job
             job.status = GenerationStatus.COMPLETED
@@ -328,6 +370,14 @@ class TemplateController:
     
     # Private methods
     
+    def _document_to_bytes(self, document) -> bytes:
+        """Convert Document object to bytes"""
+        from io import BytesIO
+
+        buffer = BytesIO()
+        document.save(buffer)
+        return buffer.getvalue()
+
     def _generate_job_id(self) -> str:
         """Generate unique job ID"""
         timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
@@ -479,7 +529,7 @@ class TemplateController:
         self._template_configs['standard'] = TemplateConfig(
             template_id='standard',
             template_type=TemplateType.STANDARD,
-            template_path='templates/standard_meeting_template.docx',
+            template_path='templates/word/default_meeting.docx',
             name='標準會議記錄模板',
             description='適用於一般會議的標準格式模板',
             field_mappings={
@@ -496,9 +546,10 @@ class TemplateController:
         self._template_configs['executive'] = TemplateConfig(
             template_id='executive',
             template_type=TemplateType.EXECUTIVE,
-            template_path='templates/executive_meeting_template.docx',
+            template_path='templates/word/default_meeting.docx',  # 暫時使用同一個模板
             name='高階主管會議模板',
             description='適用於高階主管會議的正式格式模板',
+            is_active=False,  # 暫時禁用，因為專用模板不存在
             field_mappings={
                 'meeting_title': '會議標題',
                 'meeting_date': '會議日期',
@@ -512,9 +563,10 @@ class TemplateController:
         self._template_configs['project'] = TemplateConfig(
             template_id='project',
             template_type=TemplateType.PROJECT,
-            template_path='templates/project_meeting_template.docx',
+            template_path='templates/word/default_meeting.docx',  # 暫時使用同一個模板
             name='專案會議模板',
             description='適用於專案進度會議的結構化模板',
+            is_active=False,  # 暫時禁用，因為專用模板不存在
             field_mappings={
                 'project_name': '專案名稱',
                 'meeting_date': '會議日期',
