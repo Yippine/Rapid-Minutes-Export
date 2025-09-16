@@ -95,15 +95,17 @@ class DataInjector:
         """Setup data injection rules"""
         rules = {}
         
-        # Basic meeting information rules
+        # Basic meeting information rules - match template placeholders
         basic_fields = [
-            ('meeting_title', '{{MEETING_TITLE}}', InjectionType.TEXT),
-            ('meeting_date', '{{MEETING_DATE}}', InjectionType.TEXT),
-            ('meeting_time', '{{MEETING_TIME}}', InjectionType.TEXT),
-            ('meeting_location', '{{MEETING_LOCATION}}', InjectionType.TEXT),
-            ('meeting_duration', '{{MEETING_DURATION}}', InjectionType.TEXT),
-            ('meeting_organizer', '{{MEETING_ORGANIZER}}', InjectionType.TEXT),
-            ('generation_date', '{{GENERATION_DATE}}', InjectionType.TEXT),
+            ('meeting_title', r'\{\{meeting_title\}\}', InjectionType.TEXT),
+            ('meeting_date', r'\{\{meeting_date\}\}', InjectionType.TEXT),
+            ('meeting_time', r'\{\{meeting_time\}\}', InjectionType.TEXT),
+            ('meeting_location', r'\{\{meeting_location\}\}', InjectionType.TEXT),
+            ('meeting_duration', r'\{\{meeting_duration\}\}', InjectionType.TEXT),
+            ('meeting_organizer', r'\{\{facilitator\}\}', InjectionType.TEXT),  # Template uses 'facilitator'
+            ('generation_date', r'\{\{generation_date\}\}', InjectionType.TEXT),
+            ('next_meeting_date', r'\{\{next_meeting_date\}\}', InjectionType.TEXT),
+            ('next_meeting_time', r'\{\{next_meeting_time\}\}', InjectionType.TEXT),
         ]
         
         for field_name, placeholder, injection_type in basic_fields:
@@ -114,10 +116,10 @@ class DataInjector:
                 data_format=DataFormat.PLAIN
             )
         
-        # Complex data structure rules
+        # Complex data structure rules - match template placeholders
         rules['attendees'] = InjectionRule(
             field_name='attendees',
-            placeholder_pattern='{{ATTENDEES_(?:LIST|TABLE)}}',
+            placeholder_pattern=r'\{\{attendees_table\}\}',
             injection_type=InjectionType.TABLE,
             data_format=DataFormat.TABLE_GRID,
             formatting_options={
@@ -125,10 +127,10 @@ class DataInjector:
                 'style': 'Table Grid'
             }
         )
-        
+
         rules['agenda'] = InjectionRule(
             field_name='agenda',
-            placeholder_pattern='{{AGENDA_(?:ITEMS|DETAILS)}}',
+            placeholder_pattern=r'\{\{agenda_items\}\}',
             injection_type=InjectionType.RICH_CONTENT,
             data_format=DataFormat.NUMBERED_LIST,
             formatting_options={
@@ -136,10 +138,10 @@ class DataInjector:
                 'include_details': True
             }
         )
-        
+
         rules['action_items'] = InjectionRule(
             field_name='action_items',
-            placeholder_pattern='{{ACTION_ITEMS_(?:TABLE|LIST)}}',
+            placeholder_pattern=r'\{\{action_items_table\}\}',
             injection_type=InjectionType.TABLE,
             data_format=DataFormat.TABLE_GRID,
             formatting_options={
@@ -147,10 +149,10 @@ class DataInjector:
                 'style': 'Table Grid'
             }
         )
-        
+
         rules['decisions'] = InjectionRule(
             field_name='decisions',
-            placeholder_pattern='{{DECISIONS_(?:LIST|MADE)}}',
+            placeholder_pattern=r'\{\{decisions\}\}',
             injection_type=InjectionType.LIST,
             data_format=DataFormat.NUMBERED_LIST,
             formatting_options={
@@ -158,10 +160,10 @@ class DataInjector:
                 'include_rationale': True
             }
         )
-        
-        rules['key_outcomes'] = InjectionRule(
-            field_name='key_outcomes',
-            placeholder_pattern='{{KEY_OUTCOMES|MEETING_SUMMARY}}',
+
+        rules['discussion_points'] = InjectionRule(
+            field_name='discussion_points',
+            placeholder_pattern=r'\{\{discussion_points\}\}',
             injection_type=InjectionType.LIST,
             data_format=DataFormat.BULLET_LIST,
             formatting_options={
@@ -350,24 +352,41 @@ class DataInjector:
         """Inject table data"""
         if not data:
             return False
-        
+
+        # Validate data format
+        if not isinstance(data, list):
+            logger.error(f"❌ Table data for {rule.field_name} must be a list, got {type(data)}")
+            return False
+
+        # Filter out non-dict items and log warnings
+        valid_data = []
+        for i, item in enumerate(data):
+            if isinstance(item, dict):
+                valid_data.append(item)
+            else:
+                logger.warning(f"⚠️ Skipping non-dict item {i} in {rule.field_name}: {type(item)} - {item}")
+
+        if not valid_data:
+            logger.warning(f"⚠️ No valid dict items found in {rule.field_name} table data")
+            return False
+
         # Find placeholder
         placeholder_para = None
         pattern = re.compile(rule.placeholder_pattern)
-        
+
         for paragraph in doc.paragraphs:
             if pattern.search(paragraph.text):
                 placeholder_para = paragraph
                 break
-        
+
         if not placeholder_para:
             return False
-        
+
         try:
             # Create table based on rule configuration
             headers = rule.formatting_options.get('headers', [])
-            if not headers and data:
-                headers = list(data[0].keys())
+            if not headers and valid_data:
+                headers = list(valid_data[0].keys())
             
             # Create table
             table = doc.add_table(rows=1, cols=len(headers))
@@ -382,15 +401,15 @@ class DataInjector:
             
             # Add data rows
             if rule.field_name == 'attendees':
-                for attendee in data:
+                for attendee in valid_data:
                     row_cells = table.add_row().cells
                     row_cells[0].text = attendee.get('name', '')
                     row_cells[1].text = attendee.get('role', '')
                     row_cells[2].text = attendee.get('organization', '')
                     row_cells[3].text = attendee.get('present', '出席')
-            
+
             elif rule.field_name == 'action_items':
-                for action in data:
+                for action in valid_data:
                     row_cells = table.add_row().cells
                     row_cells[0].text = action.get('task', '')
                     row_cells[1].text = action.get('assignee', '')
@@ -445,7 +464,7 @@ class DataInjector:
                         resp_para = placeholder_para.insert_paragraph_before(f"   負責單位: {decision['responsible_party']}")
                         resp_para.style = 'Normal'
             
-            elif rule.field_name == 'key_outcomes':
+            elif rule.field_name == 'key_outcomes' or rule.field_name == 'discussion_points':
                 for outcome in data:
                     outcome_text = str(outcome)
                     outcome_para = placeholder_para.insert_paragraph_before(f"• {outcome_text}")
@@ -463,22 +482,39 @@ class DataInjector:
         """Inject rich content with complex formatting"""
         if not data:
             return False
-        
+
+        # Validate data format
+        if not isinstance(data, list):
+            logger.error(f"❌ Rich content data for {rule.field_name} must be a list, got {type(data)}")
+            return False
+
+        # Filter out non-dict items and log warnings
+        valid_data = []
+        for i, item in enumerate(data):
+            if isinstance(item, dict):
+                valid_data.append(item)
+            else:
+                logger.warning(f"⚠️ Skipping non-dict item {i} in {rule.field_name}: {type(item)} - {item}")
+
+        if not valid_data:
+            logger.warning(f"⚠️ No valid dict items found in {rule.field_name} rich content data")
+            return False
+
         # Find placeholder
         placeholder_para = None
         pattern = re.compile(rule.placeholder_pattern)
-        
+
         for paragraph in doc.paragraphs:
             if pattern.search(paragraph.text):
                 placeholder_para = paragraph
                 break
-        
+
         if not placeholder_para:
             return False
-        
+
         try:
             if rule.field_name == 'agenda':
-                for i, agenda_item in enumerate(data, 1):
+                for i, agenda_item in enumerate(valid_data, 1):
                     # Add agenda item title
                     title = agenda_item.get('title', f'議程項目 {i}')
                     title_para = placeholder_para.insert_paragraph_before(f"{i}. {title}")
@@ -537,10 +573,10 @@ class DataInjector:
         if meeting_minutes.attendees:
             data['attendees'] = [
                 {
-                    'name': attendee.name,
-                    'role': attendee.role or "",
-                    'organization': attendee.organization or "",
-                    'present': "出席" if attendee.present else "缺席"
+                    'name': attendee.name if hasattr(attendee, 'name') else str(attendee),
+                    'role': attendee.role if hasattr(attendee, 'role') else "",
+                    'organization': attendee.organization if hasattr(attendee, 'organization') else "",
+                    'present': "出席" if (hasattr(attendee, 'present') and attendee.present) else "出席"
                 }
                 for attendee in meeting_minutes.attendees
             ]
@@ -549,10 +585,10 @@ class DataInjector:
         if meeting_minutes.agenda:
             data['agenda'] = [
                 {
-                    'title': topic.title,
-                    'description': topic.description or "",
-                    'presenter': topic.presenter or "",
-                    'key_points': topic.key_points or []
+                    'title': topic.title if hasattr(topic, 'title') else str(topic),
+                    'description': topic.description if hasattr(topic, 'description') else "",
+                    'presenter': topic.presenter if hasattr(topic, 'presenter') else "",
+                    'key_points': topic.key_points if hasattr(topic, 'key_points') else []
                 }
                 for topic in meeting_minutes.agenda
             ]
@@ -561,11 +597,11 @@ class DataInjector:
         if meeting_minutes.action_items:
             data['action_items'] = [
                 {
-                    'task': action.task,
-                    'assignee': action.assignee or "",
-                    'due_date': action.due_date or "",
-                    'priority': action.priority or "",
-                    'status': action.status or "待處理"
+                    'task': action.task if hasattr(action, 'task') else str(action),
+                    'assignee': action.assignee if hasattr(action, 'assignee') else "",
+                    'due_date': action.due_date if hasattr(action, 'due_date') else "",
+                    'priority': action.priority if hasattr(action, 'priority') else "",
+                    'status': action.status if hasattr(action, 'status') else "待處理"
                 }
                 for action in meeting_minutes.action_items
             ]
@@ -574,10 +610,10 @@ class DataInjector:
         if meeting_minutes.decisions:
             data['decisions'] = [
                 {
-                    'decision': decision.decision,
-                    'rationale': decision.rationale or "",
-                    'impact': decision.impact or "",
-                    'responsible_party': decision.responsible_party or ""
+                    'decision': decision.decision if hasattr(decision, 'decision') else str(decision),
+                    'rationale': decision.rationale if hasattr(decision, 'rationale') else "",
+                    'impact': decision.impact if hasattr(decision, 'impact') else "",
+                    'responsible_party': decision.responsible_party if hasattr(decision, 'responsible_party') else ""
                 }
                 for decision in meeting_minutes.decisions
             ]
@@ -585,6 +621,20 @@ class DataInjector:
         # Key outcomes
         if meeting_minutes.key_outcomes:
             data['key_outcomes'] = meeting_minutes.key_outcomes
+
+        # Discussion points (mapped from key_outcomes for compatibility)
+        if meeting_minutes.key_outcomes:
+            data['discussion_points'] = meeting_minutes.key_outcomes
+
+        # Additional mapping for next meeting info
+        if meeting_minutes.next_meeting:
+            next_meeting_info = meeting_minutes.next_meeting.split()
+            if len(next_meeting_info) >= 2:
+                data['next_meeting_date'] = next_meeting_info[0]
+                data['next_meeting_time'] = ' '.join(next_meeting_info[1:])
+            else:
+                data['next_meeting_date'] = meeting_minutes.next_meeting
+                data['next_meeting_time'] = ""
         
         # Additional notes
         if meeting_minutes.additional_notes:

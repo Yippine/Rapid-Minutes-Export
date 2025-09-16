@@ -6,6 +6,7 @@ Implements 82 Rule principle - core 20% AI functionality for 80% extraction effe
 
 import json
 import logging
+import re
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
 from datetime import datetime
@@ -14,8 +15,66 @@ import asyncio
 
 from .ollama_client import OllamaClient
 from .text_preprocessor import TextPreprocessor, PreprocessedText
+from .model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
+
+
+def clean_json_response(content: str) -> str:
+    """Clean AI response content for JSON parsing"""
+    if not content:
+        return content
+
+    # Remove control characters except newlines and tabs
+    cleaned = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', content)
+
+    # First try to find JSON array (for attendees, agenda, action_items)
+    start_idx = cleaned.find('[')
+    end_idx = cleaned.rfind(']')
+
+    if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
+        json_content = cleaned[start_idx:end_idx + 1]
+    else:
+        # Fallback: try to find JSON object
+        start_idx = cleaned.find('{')
+        end_idx = cleaned.rfind('}')
+        if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
+            json_content = cleaned[start_idx:end_idx + 1]
+        else:
+            # Try to fix incomplete JSON
+            json_content = fix_incomplete_json(cleaned)
+
+    return json_content
+
+
+def fix_incomplete_json(content: str) -> str:
+    """Fix incomplete or truncated JSON"""
+    content = content.strip()
+
+    # Check if it's a truncated JSON array
+    if content.startswith('[') and not content.endswith(']'):
+        # Find the last complete object
+        brace_count = 0
+        last_complete_idx = -1
+
+        for i, char in enumerate(content):
+            if char == '{':
+                brace_count += 1
+            elif char == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    last_complete_idx = i
+
+        if last_complete_idx > 0:
+            # Truncate to last complete object and close array
+            content = content[:last_complete_idx + 1] + ']'
+
+    # Check if it's a truncated JSON object
+    elif content.startswith('{') and not content.endswith('}'):
+        # Try to close the object properly
+        content = content.rstrip(',') + '}'
+
+    return content.strip()
 
 
 class ExtractionStatus(Enum):
@@ -142,6 +201,22 @@ class StructuredDataExtractor:
         self.validation_rules = self._setup_validation_rules()
         
         logger.info("🔍 Structured Data Extractor initialized")
+        logger.warning("🚨 MODIFIED EXTRACTOR LOADED - IF YOU SEE THIS, THE FIX IS ACTIVE!")
+
+    def _get_generation_params(self, model_options: Dict[str, any]) -> Dict[str, any]:
+        """Get generation parameters based on model configuration"""
+        params = {
+            'options': {
+                'temperature': model_options.get('temperature', 0.1),
+                'top_p': model_options.get('top_p', 0.9)
+            }
+        }
+
+        # Only add format='json' for models that support it
+        if model_options.get('use_json_format', True):
+            params['format'] = 'json'
+
+        return params
     
     def _setup_extraction_prompts(self) -> Dict[str, str]:
         """Setup extraction prompts for different information types"""
@@ -356,7 +431,11 @@ JSON Response:'''
         # Handle any extraction failures
         for component, result in component_results.items():
             if isinstance(result, Exception):
-                logger.warning(f"⚠️ Failed to extract {component}: {result}")
+                logger.warning(f"🚨 REAL ERROR for {component}: {type(result).__name__}: {result}")
+                logger.warning(f"🔍 Exception details: {repr(result)}")
+                # Import traceback to show full error
+                import traceback
+                logger.warning(f"📋 Full traceback: {traceback.format_exception(type(result), result, result.__traceback__)}")
                 component_results[component] = self._get_default_component(component)
         
         # Assemble complete meeting minutes
@@ -372,54 +451,115 @@ JSON Response:'''
         logger.info("✅ All components extracted successfully")
         return meeting_minutes
     
+    def _smart_truncate(self, text: str, max_length: int = 4000) -> str:
+        """Smart truncation preserving important meeting content"""
+        if len(text) <= max_length:
+            return text
+
+        # Split into lines and prioritize important sections
+        lines = text.split('\n')
+        important_keywords = ['會議', '日期', '時間', '地點', '主持', '出席', '議題', '決議', '行動', '任務']
+
+        # Find lines with important keywords first
+        important_lines = []
+        other_lines = []
+
+        for line in lines:
+            if any(keyword in line for keyword in important_keywords):
+                important_lines.append(line)
+            else:
+                other_lines.append(line)
+
+        # Build result starting with important lines
+        result = '\n'.join(important_lines)
+        remaining_space = max_length - len(result)
+
+        # Add other lines if space allows
+        for line in other_lines:
+            if len(result) + len(line) + 1 <= max_length:
+                result += '\n' + line
+            else:
+                break
+
+        return result
+
     async def _extract_basic_info(self, text: str) -> MeetingBasicInfo:
         """Extract basic meeting information"""
-        prompt = self.extraction_prompts['basic_info'].format(text=text[:2000])  # Limit text length
-        
+        truncated_text = self._smart_truncate(text, 3000)  # Increase limit for basic info
+        prompt = self.extraction_prompts['basic_info'].replace('{text}', truncated_text)
+        response = None
+
+        # Get model-specific configuration
+        model_options = ModelConfig.get_model_options(self.ollama_client.model)
+        gen_params = self._get_generation_params(model_options)
+
         try:
             response = await self.ollama_client.generate(
                 prompt=prompt,
-                format='json',
-                options={'temperature': 0.1, 'top_p': 0.9}
+                **gen_params
             )
-            
-            data = json.loads(response.content)
+
+            logger.warning(f"🔍 Raw AI response for basic_info: {repr(response.content[:200])}")
+
+            cleaned_content = clean_json_response(response.content)
+            logger.warning(f"🔍 Cleaned content: {repr(cleaned_content[:200])}")
+
+            data = json.loads(cleaned_content)
             return MeetingBasicInfo(**data)
-            
+
         except (json.JSONDecodeError, TypeError, KeyError) as e:
-            logger.warning(f"⚠️ Failed to parse basic info JSON: {e}")
+            if response:
+                logger.warning(f"⚠️ Failed to extract basic_info. Raw: {repr(response.content[:100])}, Cleaned: {repr(clean_json_response(response.content)[:100])}")
+            else:
+                logger.warning(f"⚠️ Failed to extract basic_info: {e}")
             return MeetingBasicInfo()
     
     async def _extract_attendees(self, text: str) -> List[Attendee]:
         """Extract attendee information"""
-        prompt = self.extraction_prompts['attendees'].format(text=text[:2000])
-        
+        truncated_text = self._smart_truncate(text, 2500)  # Focused on attendee info
+        prompt = self.extraction_prompts['attendees'].replace('{text}', truncated_text)
+        response = None
+
+        # Get model-specific configuration
+        model_options = ModelConfig.get_model_options(self.ollama_client.model)
+        gen_params = self._get_generation_params(model_options)
+
         try:
             response = await self.ollama_client.generate(
                 prompt=prompt,
-                format='json',
-                options={'temperature': 0.1}
+                **gen_params
             )
-            
-            data = json.loads(response.content)
+
+            cleaned_content = clean_json_response(response.content)
+            data = json.loads(cleaned_content)
             return [Attendee(**attendee) for attendee in data if isinstance(attendee, dict)]
-            
+
         except (json.JSONDecodeError, TypeError, KeyError) as e:
-            logger.warning(f"⚠️ Failed to parse attendees JSON: {e}")
+            if response:
+                logger.warning(f"⚠️ Failed to extract attendees: {repr(response.content[:50])}")
+            else:
+                logger.warning(f"⚠️ Failed to extract attendees: {e}")
             return []
     
     async def _extract_agenda(self, text: str) -> List[DiscussionTopic]:
         """Extract discussion topics and agenda"""
-        prompt = self.extraction_prompts['agenda'].format(text=text)
-        
+        truncated_text = self._smart_truncate(text, 4000)  # Agenda needs more context
+        prompt = self.extraction_prompts['agenda'].replace('{text}', truncated_text)
+        response = None
+
+        # Get model-specific configuration
+        model_options = ModelConfig.get_model_options(self.ollama_client.model)
+        gen_params = self._get_generation_params(model_options)
+        gen_params['options']['temperature'] = 0.2  # Override for agenda
+
         try:
             response = await self.ollama_client.generate(
                 prompt=prompt,
-                format='json',
-                options={'temperature': 0.2}
+                **gen_params
             )
-            
-            data = json.loads(response.content)
+
+            cleaned_content = clean_json_response(response.content)
+            data = json.loads(cleaned_content)
             topics = []
             for topic in data:
                 if isinstance(topic, dict):
@@ -427,68 +567,98 @@ JSON Response:'''
                     if topic.get('key_points') and not isinstance(topic['key_points'], list):
                         topic['key_points'] = []
                     topics.append(DiscussionTopic(**topic))
-            
+
             return topics
-            
+
         except (json.JSONDecodeError, TypeError, KeyError) as e:
-            logger.warning(f"⚠️ Failed to parse agenda JSON: {e}")
+            if response:
+                logger.warning(f"⚠️ Failed to extract agenda: {repr(response.content[:50])}")
+            else:
+                logger.warning(f"⚠️ Failed to extract agenda: {e}")
             return []
     
     async def _extract_action_items(self, text: str) -> List[ActionItem]:
         """Extract action items"""
-        prompt = self.extraction_prompts['action_items'].format(text=text)
-        
+        truncated_text = self._smart_truncate(text, 3500)  # Action items need good context
+        prompt = self.extraction_prompts['action_items'].replace('{text}', truncated_text)
+        response = None
+
+        # Get model-specific configuration
+        model_options = ModelConfig.get_model_options(self.ollama_client.model)
+        gen_params = self._get_generation_params(model_options)
+
         try:
             response = await self.ollama_client.generate(
                 prompt=prompt,
-                format='json',
-                options={'temperature': 0.1}
+                **gen_params
             )
-            
-            data = json.loads(response.content)
+
+            cleaned_content = clean_json_response(response.content)
+            data = json.loads(cleaned_content)
             return [ActionItem(**item) for item in data if isinstance(item, dict)]
-            
+
         except (json.JSONDecodeError, TypeError, KeyError) as e:
-            logger.warning(f"⚠️ Failed to parse action items JSON: {e}")
+            if response:
+                logger.warning(f"⚠️ Failed to extract action_items: {repr(response.content[:50])}")
+            else:
+                logger.warning(f"⚠️ Failed to extract action_items: {e}")
             return []
     
     async def _extract_decisions(self, text: str) -> List[Decision]:
         """Extract decisions made in the meeting"""
-        prompt = self.extraction_prompts['decisions'].format(text=text)
-        
+        truncated_text = self._smart_truncate(text, 3500)  # Decisions need good context
+        prompt = self.extraction_prompts['decisions'].replace('{text}', truncated_text)
+        response = None
+
+        # Get model-specific configuration
+        model_options = ModelConfig.get_model_options(self.ollama_client.model)
+        gen_params = self._get_generation_params(model_options)
+
         try:
             response = await self.ollama_client.generate(
                 prompt=prompt,
-                format='json',
-                options={'temperature': 0.1}
+                **gen_params
             )
-            
-            data = json.loads(response.content)
+
+            cleaned_content = clean_json_response(response.content)
+            data = json.loads(cleaned_content)
             return [Decision(**decision) for decision in data if isinstance(decision, dict)]
-            
+
         except (json.JSONDecodeError, TypeError, KeyError) as e:
-            logger.warning(f"⚠️ Failed to parse decisions JSON: {e}")
+            if response:
+                logger.warning(f"⚠️ Failed to extract decisions: {repr(response.content[:50])}")
+            else:
+                logger.warning(f"⚠️ Failed to extract decisions: {e}")
             return []
     
     async def _extract_key_outcomes(self, text: str) -> List[str]:
         """Extract key outcomes and summary points"""
-        prompt = self.extraction_prompts['key_outcomes'].format(text=text[-2000:])  # Use ending text
-        
+        prompt = self.extraction_prompts['key_outcomes'].replace('{text}', text[-2000:])  # Use ending text
+        response = None
+
+        # Get model-specific configuration
+        model_options = ModelConfig.get_model_options(self.ollama_client.model)
+        gen_params = self._get_generation_params(model_options)
+        gen_params['options']['temperature'] = 0.2  # Override for key outcomes
+
         try:
             response = await self.ollama_client.generate(
                 prompt=prompt,
-                format='json',
-                options={'temperature': 0.2}
+                **gen_params
             )
-            
-            data = json.loads(response.content)
+
+            cleaned_content = clean_json_response(response.content)
+            data = json.loads(cleaned_content)
             if isinstance(data, list):
                 return [str(outcome) for outcome in data if outcome]
             else:
                 return []
-                
+
         except (json.JSONDecodeError, TypeError, KeyError) as e:
-            logger.warning(f"⚠️ Failed to parse key outcomes JSON: {e}")
+            if response:
+                logger.warning(f"⚠️ Failed to parse key outcomes JSON: Invalid control character at: {repr(response.content[:50])}")
+            else:
+                logger.warning(f"⚠️ Failed to extract key_outcomes: {e}")
             return []
     
     def _get_default_component(self, component: str) -> Any:

@@ -1,18 +1,23 @@
 import logging
+from dataclasses import asdict
 from fastapi import APIRouter, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
 
 from rapid_minutes.storage.file_manager import FileManager
 from rapid_minutes.ai.ollama_client import OllamaClient
+from rapid_minutes.ai.extractor import StructuredDataExtractor
 from rapid_minutes.ai.text_processor import TextProcessor
 from rapid_minutes.document.word_generator import WordGenerator
+from rapid_minutes.core.template_controller import TemplateController, TemplateType
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 file_manager = FileManager()
 ollama_client = OllamaClient()
+data_extractor = StructuredDataExtractor(ollama_client)
 text_processor = TextProcessor()
+template_controller = TemplateController()
 
 
 @router.post("/api/upload")
@@ -23,9 +28,13 @@ async def upload_file(file: UploadFile = File(...)):
         if not file.filename:
             raise HTTPException(status_code=400, detail="No file provided")
 
-        # Sanitize filename
-        import re
-        if not re.match(r'^[a-zA-Z0-9._-]+$', file.filename) or '..' in file.filename:
+        # Sanitize filename - allow Unicode characters but prevent path traversal
+        # Block dangerous patterns but allow international characters
+        if '..' in file.filename or '/' in file.filename or '\\' in file.filename:
+            raise HTTPException(status_code=400, detail="Invalid filename")
+
+        # Basic filename validation - must have reasonable length and extension
+        if len(file.filename) > 255 or len(file.filename.strip()) == 0:
             raise HTTPException(status_code=400, detail="Invalid filename")
 
         # Check file type
@@ -52,13 +61,13 @@ async def upload_file(file: UploadFile = File(...)):
             raise HTTPException(status_code=413, detail="File content too large")
         
         # Save file
-        file_info = file_manager.save_uploaded_file(file_content, file.filename)
-        
+        file_metadata = await file_manager.store_file(file_content, file.filename)
+
         return {
             "success": True,
-            "file_id": file_info["file_id"],
-            "filename": file_info["original_name"],
-            "size": file_info["file_size"],
+            "file_id": file_metadata.file_id,
+            "filename": file_metadata.original_name,
+            "size": file_metadata.file_size,
             "message": "File uploaded successfully"
         }
         
@@ -72,7 +81,9 @@ async def upload_file(file: UploadFile = File(...)):
 def validate_file_id(file_id: str) -> str:
     """Validate file_id to prevent path traversal"""
     import re
-    if not re.match(r'^[a-zA-Z0-9-]+$', file_id) or '..' in file_id or len(file_id) != 36:
+    # Allow alphanumeric characters, underscores, and hyphens
+    # File IDs are generated as timestamp_hash format (e.g., 20250915_125006_114_12cc2028)
+    if not re.match(r'^[a-zA-Z0-9_-]+$', file_id) or '..' in file_id or len(file_id) < 10 or len(file_id) > 50:
         raise HTTPException(status_code=400, detail="Invalid file ID format")
     return file_id
 
@@ -231,12 +242,40 @@ async def process_file_background(file_id: str):
         file_manager.update_processing_status(file_id, "processing", 40)
         
         # Extract meeting data using AI
-        meeting_data = ollama_client.extract_meeting_data(preprocessed_content)
+        extraction_result = await data_extractor.extract_meeting_minutes(preprocessed_content)
         file_manager.update_processing_status(file_id, "processing", 70)
         
-        # Generate Word document
-        word_generator = WordGenerator()
-        word_content = word_generator.generate_document(meeting_data)
+        # Generate Word document using template and data injection
+        from rapid_minutes.core.template_controller import GenerationStatus
+
+        logger.info(f"🔥 Processing {file_id}: Extraction result has minutes: {extraction_result.minutes is not None}")
+
+        if extraction_result.minutes:
+            logger.info(f"🚀 Calling TemplateController for {file_id}")
+            generation_result = await template_controller.generate_document(
+                extraction_result.minutes,
+                TemplateType.STANDARD
+            )
+            logger.info(f"📝 TemplateController result status: {generation_result.status}")
+
+            if generation_result.status == GenerationStatus.COMPLETED and generation_result.output_path:
+                logger.info(f"✅ Template generation successful, reading from: {generation_result.output_path}")
+                # Read the generated document
+                with open(generation_result.output_path, 'rb') as f:
+                    word_content = f.read()
+                logger.info(f"📄 Word content size: {len(word_content)} bytes")
+            else:
+                # Fallback to original generator if template generation fails
+                logger.warning(f"❌ Template generation failed: {generation_result.error_message}")
+                logger.info(f"🔄 Falling back to WordGenerator for {file_id}")
+                word_generator = WordGenerator()
+                minutes_dict = asdict(extraction_result.minutes)
+                word_content = word_generator.generate_document(minutes_dict)
+        else:
+            # No extraction data, use empty document
+            logger.warning(f"⚠️ No extraction data for {file_id}, using empty document")
+            word_generator = WordGenerator()
+            word_content = word_generator.generate_document({})
         
         # Save Word file
         file_manager.save_output_file(file_id, word_content, 'word')
