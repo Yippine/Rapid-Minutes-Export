@@ -138,9 +138,9 @@ celerybeat.pid
 .env
 .envrc
 .venv
-env/
-venv/
-ENV/
+/env/
+/venv/
+/ENV/
 env.bak/
 venv.bak/
 
@@ -220,6 +220,8 @@ data/temp/
 data/input/*.txt
 data/input/*.doc
 data/input/*.docx
+data/file_registry.json
+data/uploads/
 
 # Upload directories (test files and user uploads)
 uploads/
